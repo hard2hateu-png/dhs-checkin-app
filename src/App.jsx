@@ -176,7 +176,7 @@ const IconUser = () => (
   </svg>
 );
 
-// --- UPDATED QR SCANNER COMPONENT ---
+// --- QR SCANNER COMPONENT ---
 
 function QRScanner({ onScan, onClose }) {
   const videoRef = useRef(null);
@@ -643,48 +643,87 @@ export default function App() {
   }
 
   return (
-    <div style={{ maxWidth: 500, margin: "0 auto", height: "100vh", position: "relative", background: "#0a0a0a", color: "#fff", overflow: "hidden" }}>
-      {screen === "list" && (
-        <AttendeeList
-          attendees={attendees}
-          loading={loading}
-          onSelect={handleSelect}
-          onScanNav={() => setScreen("scan")}
-        />
-      )}
+    <>
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translate(-50%, -8px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        html,
+        body,
+        #root {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          min-height: 100%;
+          background: #0a0a0a;
+          overflow-x: hidden;
+        }
+        body {
+          overscroll-behavior: none;
+        }
+        * {
+          box-sizing: border-box;
+          -webkit-tap-highlight-color: transparent;
+        }
+      `}</style>
 
-      {screen === "scan" && (
-        <QRScanner
-          onScan={(id) => handleSelect(id)}
-          onClose={() => setScreen("list")}
-        />
-      )}
+      <div
+        style={{
+          background: "#0a0a0a",
+          minHeight: "100dvh",
+          width: "100vw",
+          maxWidth: 480,
+          margin: "0 auto",
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          color: "#fff",
+          overflow: "hidden"
+        }}
+      >
+        {screen === "list" && (
+          <AttendeeList
+            attendees={attendees}
+            loading={loading}
+            onSelect={handleSelect}
+            onScanNav={() => setScreen("scan")}
+          />
+        )}
 
-      {screen === "detail" && selectedAttendee && (
-        <AttendeeDetail
-          attendee={selectedAttendee}
-          saving={saving}
-          onBack={() => setScreen("list")}
-          onCheckIn={handleCheckIn}
-          onRegister={handleRegisterStart}
-        />
-      )}
+        {screen === "scan" && (
+          <QRScanner
+            onScan={(id) => handleSelect(id)}
+            onClose={() => setScreen("list")}
+          />
+        )}
 
-      {screen === "register" && (
-        <RegistrationForm
-          ticketId={selectedId}
-          initial={selectedAttendee}
-          saving={saving}
-          onSubmit={handleRegisterSubmit}
-          onCancel={() => setScreen("detail")}
-        />
-      )}
+        {screen === "detail" && selectedAttendee && (
+          <AttendeeDetail
+            attendee={selectedAttendee}
+            saving={saving}
+            onBack={() => setScreen("list")}
+            onCheckIn={handleCheckIn}
+            onRegister={handleRegisterStart}
+          />
+        )}
 
-      {notFoundMsg && (
-        <div style={{ position: "absolute", bottom: 100, left: 20, right: 20, background: "#ff4444", color: "#fff", padding: "12px 20px", borderRadius: 12, textAlign: "center", fontFamily: "'Space Mono', monospace", fontSize: 13, zIndex: 1000, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
-          {notFoundMsg}
-        </div>
-      )}
-    </div>
+        {screen === "register" && (
+          <RegistrationForm
+            ticketId={selectedId}
+            initial={selectedAttendee}
+            saving={saving}
+            onSubmit={handleRegisterSubmit}
+            onCancel={() => setScreen("detail")}
+          />
+        )}
+
+        {notFoundMsg && (
+          <div style={{ position: "absolute", bottom: 100, left: 20, right: 20, background: "#ff4444", color: "#fff", padding: "12px 20px", borderRadius: 12, textAlign: "center", fontFamily: "'Space Mono', monospace", fontSize: 13, zIndex: 1000, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+            {notFoundMsg}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
