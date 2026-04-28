@@ -180,6 +180,7 @@ const IconUser = () => (
 
 function QRScanner({ onScan, onClose }) {
   const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const animRef = useRef(null);
   const [status, setStatus] = useState("Iniciando cámara...");
@@ -196,53 +197,62 @@ function QRScanner({ onScan, onClose }) {
       }
     }
 
+    function scanFrame() {
+      if (!active) return;
+
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+
+      if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "attemptBoth",
+        });
+
+        if (code?.data) {
+          stopCamera();
+          onScan(normalizeTicketId(code.data));
+          return;
+        }
+      }
+
+      animRef.current = requestAnimationFrame(scanFrame);
+    }
+
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+          video: {
+            facingMode: "environment",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
         });
 
         if (!active) return;
 
         streamRef.current = stream;
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
 
-        setStatus("Apunta al código QR");
-
-        const detector =
-          "BarcodeDetector" in window
-            ? new BarcodeDetector({ formats: ["qr_code"] })
-            : null;
-
-        if (!detector) {
-          setStatus("Escaneo no soportado. Usa entrada manual.");
-          return;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+          setStatus("Apunta al código QR del ticket");
+          scanFrame();
         }
-
-        async function scan() {
-          if (!active) return;
-
-          try {
-            const codes = await detector.detect(videoRef.current);
-            if (codes.length > 0) {
-              stopCamera();
-              onScan(normalizeTicketId(codes[0].rawValue));
-              return;
-            }
-          } catch {}
-
-          animRef.current = requestAnimationFrame(scan);
-        }
-
-        scan();
       } catch {
-        setStatus("No se pudo usar la cámara.");
+        setStatus("No se pudo usar la cámara. Usa entrada manual.");
       }
     }
 
     startCamera();
-    return stopCamera;
+    return () => stopCamera();
   }, [onScan]);
 
   function handleManual() {
@@ -257,11 +267,15 @@ function QRScanner({ onScan, onClose }) {
         <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
           <IconBack />
         </button>
-        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: 1 }}>ESCANEAR TICKET</span>
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: 1 }}>
+          ESCANEAR TICKET
+        </span>
       </div>
 
       <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", maxHeight: 380 }}>
         <video ref={videoRef} style={{ width: "100%", height: "100%", objectFit: "cover" }} playsInline muted />
+        <canvas ref={canvasRef} style={{ display: "none" }} />
+
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
           <div style={{ position: "relative", width: 220, height: 220 }}>
             {[["top", "left"], ["top", "right"], ["bottom", "left"], ["bottom", "right"]].map(([v, h]) => (
@@ -283,13 +297,19 @@ function QRScanner({ onScan, onClose }) {
             <div style={{ position: "absolute", left: 8, right: 8, top: "40%", height: 2, background: "linear-gradient(90deg, transparent, #00ff88, transparent)", animation: "scanLine 1.5s ease-in-out infinite" }} />
           </div>
         </div>
+
         <style>{`@keyframes scanLine { 0%,100%{opacity:0;transform:translateY(-30px)} 50%{opacity:1;transform:translateY(30px)} }`}</style>
       </div>
 
-      <div style={{ textAlign: "center", padding: "12px 20px", color: "#aaa", fontFamily: "'Space Mono', monospace", fontSize: 13 }}>{status}</div>
+      <div style={{ textAlign: "center", padding: "12px 20px", color: "#aaa", fontFamily: "'Space Mono', monospace", fontSize: 13 }}>
+        {status}
+      </div>
 
       <div style={{ padding: "12px 20px 28px", borderTop: "1px solid #1a1a1a" }}>
-        <div style={{ marginBottom: 8, color: "#666", fontFamily: "'Space Mono', monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Entrada manual</div>
+        <div style={{ marginBottom: 8, color: "#666", fontFamily: "'Space Mono', monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
+          Entrada manual
+        </div>
+
         <div style={{ display: "flex", gap: 8 }}>
           <input
             value={manualInput}
@@ -306,7 +326,6 @@ function QRScanner({ onScan, onClose }) {
     </div>
   );
 }
-
 // --- SHARED FORM STYLES ---
 
 const labelStyle = { display: "block", color: "#777", fontFamily: "'Space Mono', monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, margin: "14px 0 6px" };
