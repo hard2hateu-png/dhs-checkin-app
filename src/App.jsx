@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import jsQR from "jsqr";
+
 const API_URL = "https://script.google.com/macros/s/AKfycbw9mRofEQdVmM-RS9c6awsFWSz2HLxywNjBCoyU9MWC_AAIxfQYyf57tRKjN6FYo4-Isw/exec";
 
 const FALLBACK_ATTENDEES = Array.from({ length: 100 }, (_, i) => ({
@@ -101,6 +102,18 @@ async function apiCheckInTicket(ticketId) {
   return normalizeTicket(data.ticket);
 }
 
+async function apiUndoCheckInTicket(ticketId) {
+  const data = await fetchJson(API_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "undo_check_in",
+      ticket_id: normalizeTicketId(ticketId),
+    }),
+  });
+  if (!data.success) throw new Error(data.error || "Undo check-in failed");
+  return normalizeTicket(data.ticket);
+}
+
 // --- LOGIC HELPERS ---
 
 function isRegistered(attendee) {
@@ -146,17 +159,6 @@ const IconScan = () => (
   </svg>
 );
 
-const IconList = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <line x1="8" y1="6" x2="21" y2="6" />
-    <line x1="8" y1="12" x2="21" y2="12" />
-    <line x1="8" y1="18" x2="21" y2="18" />
-    <line x1="3" y1="6" x2="3.01" y2="6" />
-    <line x1="3" y1="12" x2="3.01" y2="12" />
-    <line x1="3" y1="18" x2="3.01" y2="18" />
-  </svg>
-);
-
 const IconBack = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M19 12H5M12 5l-7 7 7 7" />
@@ -173,6 +175,13 @@ const IconUser = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
     <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+const IconUndo = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
   </svg>
 );
 
@@ -277,7 +286,7 @@ function QRScanner({ onScan, onClose }) {
         <canvas ref={canvasRef} style={{ display: "none" }} />
 
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-          <div style={{ position: "relative", width: 220, height: 220 }}>
+          <div style={{ relative: "relative", width: 220, height: 220 }}>
             {[["top", "left"], ["top", "right"], ["bottom", "left"], ["bottom", "right"]].map(([v, h]) => (
               <div
                 key={`${v}-${h}`}
@@ -326,6 +335,7 @@ function QRScanner({ onScan, onClose }) {
     </div>
   );
 }
+
 // --- SHARED FORM STYLES ---
 
 const labelStyle = { display: "block", color: "#777", fontFamily: "'Space Mono', monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, margin: "14px 0 6px" };
@@ -487,7 +497,7 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
   );
 }
 
-function AttendeeDetail({ attendee, onCheckIn, onRegister, onBack, saving }) {
+function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack, saving }) {
   const checked = isCheckedIn(attendee);
   const registered = isRegistered(attendee);
   const name = [attendee.first_name, attendee.last_name].filter(Boolean).join(" ") || "Sin nombre";
@@ -545,24 +555,57 @@ function AttendeeDetail({ attendee, onCheckIn, onRegister, onBack, saving }) {
               <div style={{ width: 40, height: 40, background: "#00ff88", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#000" }}>
                 <IconCheck />
               </div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, color: "#00ff88", fontSize: 15 }}>Ya hizo check-in</div>
                 {attendee.check_in_time && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#4ade80", marginTop: 3 }}>{String(attendee.check_in_time)}</div>}
               </div>
+              <button 
+                type="button" 
+                onClick={() => onUndoCheckIn(attendee.ticket_id)} 
+                disabled={saving}
+                style={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, padding: 8, color: "#ff4444", cursor: "pointer", display: "flex" }}
+                title="Deshacer check-in"
+              >
+                <IconUndo />
+              </button>
             </div>
           </div>
         )}
       </div>
 
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
-        {!registered && (
-          <button type="button" onClick={() => onRegister(attendee.ticket_id)} style={{ width: "100%", background: "#fbbf24", color: "#000", border: "none", borderRadius: 16, padding: 18, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 16, cursor: "pointer", marginBottom: 10, letterSpacing: 0.5 }}>
-            REGISTRAR ASISTENTE
+        {registered && (
+          <button
+            type="button"
+            onClick={() => onRegister(attendee.ticket_id)}
+            style={{
+              width: "100%",
+              background: "#222",
+              color: "#fff",
+              border: "1px solid #333",
+              borderRadius: 16,
+              padding: 16,
+              fontFamily: "'Space Mono', monospace",
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: "pointer",
+              marginBottom: 10,
+              letterSpacing: 0.5
+            }}
+          >
+            EDITAR REGISTRO
           </button>
         )}
+        
+        {!registered && (
+          <button type="button" onClick={() => onRegister(attendee.ticket_id)} style={{ width: "100%", background: "#fbbf24", color: "#000", border: "none", borderRadius: 16, padding: 18, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 16, cursor: "pointer", marginBottom: 10, letterSpacing: 0.5 }}>
+            REGISTRAR TICKET
+          </button>
+        )}
+        
         {registered && !checked && (
           <button type="button" disabled={saving} onClick={() => onCheckIn(attendee.ticket_id)} style={{ width: "100%", background: saving ? "#1a1a1a" : "#00ff88", color: saving ? "#444" : "#000", border: "none", borderRadius: 16, padding: 20, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 18, cursor: saving ? "not-allowed" : "pointer", letterSpacing: 1 }}>
-            {saving ? "GUARDANDO..." : "✓ CHECK IN"}
+            {saving ? "GUARDANDO..." : "HACER CHECK-IN"}
           </button>
         )}
       </div>
@@ -638,6 +681,19 @@ export default function App() {
       upsertAttendee(updated);
     } catch (err) {
       showError(err.message || "No se pudo hacer check-in");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleUndoCheckIn(ticketId) {
+    if (!window.confirm("¿Anular el check-in de este ticket?")) return;
+    setSaving(true);
+    try {
+      const updated = await apiUndoCheckInTicket(ticketId);
+      upsertAttendee(updated);
+    } catch (err) {
+      showError(err.message || "No se pudo anular el check-in");
     } finally {
       setSaving(false);
     }
@@ -723,6 +779,7 @@ export default function App() {
             saving={saving}
             onBack={() => setScreen("list")}
             onCheckIn={handleCheckIn}
+            onUndoCheckIn={handleUndoCheckIn}
             onRegister={handleRegisterStart}
           />
         )}
