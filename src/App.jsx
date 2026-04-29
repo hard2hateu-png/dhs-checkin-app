@@ -23,27 +23,56 @@ const FALLBACK_ATTENDEES = Array.from({ length: 100 }, (_, i) => ({
 function normalizeTicketId(value) {
   if (!value) return "";
   const raw = String(value).trim();
+
   try {
     const url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+
     const pathMatch = url.pathname.match(/DHS26-\d{3}/i);
     if (pathMatch) return pathMatch[0].toUpperCase();
-    
-    const fromQuery = url.searchParams.get("ticket") || url.searchParams.get("ticket_id") || url.searchParams.get("id");
-    if (fromQuery) return fromQuery.trim().toUpperCase();
-  } catch { /* Not a URL */ }
-  const match = raw.match(/DHS26-\d{3}/i);
-  return match ? match[0].toUpperCase() : raw.toUpperCase();
+
+    const fromQuery =
+      url.searchParams.get("ticket") ||
+      url.searchParams.get("ticket_id") ||
+      url.searchParams.get("id");
+
+    if (fromQuery) {
+      const match = String(fromQuery).match(/DHS26-\d{3}/i);
+      return match ? match[0].toUpperCase() : "";
+    }
+
+    return "";
+  } catch {
+    const match = raw.match(/DHS26-\d{3}/i);
+    return match ? match[0].toUpperCase() : "";
+  }
 }
 
-function normalizeTicket(ticket) {
+function normalizeTicket(ticket, index = null) {
+  const possibleTicketId =
+    ticket?.ticket_id ||
+    ticket?.Ticket_ID ||
+    ticket?.["Ticket ID"] ||
+    ticket?.qr_id ||
+    ticket?.QR_ID ||
+    ticket?.qr_text ||
+    ticket?.QR_TEXT ||
+    ticket?.registration_url ||
+    ticket?.Registration_URL ||
+    "";
+
+  const fallbackTicketId = index !== null ? `DHS26-${String(index + 1).padStart(3, "0")}` : "";
+  const cleanTicketId = normalizeTicketId(possibleTicketId) || fallbackTicketId;
+
   return {
     ...ticket,
-    ticket_id: normalizeTicketId(ticket?.ticket_id || ticket?.Ticket_ID || ""),
+    ticket_id: cleanTicketId,
     first_name: ticket?.first_name || ticket?.["First Name"] || "",
     last_name: ticket?.last_name || ticket?.["Last Name"] || "",
-    job_role: ticket?.job_role || "",
-    cosmetology_license: ticket?.cosmetology_license || "",
-    vendor_rep: ticket?.vendor_rep || "",
+    job_role: ticket?.job_role || ticket?.["Job Role"] || "",
+    cosmetology_license: ticket?.cosmetology_license || ticket?.["Cosmetology License"] || "",
+    phone: ticket?.phone || ticket?.Phone || "",
+    email: ticket?.email || ticket?.Email || "",
+    vendor_rep: ticket?.vendor_rep || ticket?.["Vendor Rep"] || "",
     registered: ticket?.registered ?? "NO",
     checked_in:
       ticket?.checked_in === true ||
@@ -74,7 +103,7 @@ async function apiGetTicket(ticketId) {
 async function apiListTickets() {
   const data = await fetchJson(`${API_URL}?action=list`);
   if (!data.success) throw new Error(data.error || "Could not load tickets");
-  return data.tickets.map(normalizeTicket);
+  return data.tickets.map((ticket, index) => normalizeTicket(ticket, index));
 }
 
 async function apiRegisterTicket(formData) {
@@ -141,7 +170,7 @@ function GuestView({ attendee, onRegister, onStaffMode }) {
         <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 20 }}>{isReg ? "YA ESTÁS REGISTRADO" : "BIENVENIDO"}</h1>
         {isReg && <div style={{ fontSize: 24, color: "#00ff88", marginBottom: 40 }}>{attendee.first_name} {attendee.last_name}</div>}
         
-        <button onClick={onRegister} style={{ width: "100%", padding: 20, background: isReg ? "#222" : "#00ff88", color: isReg ? "#fff" : "#000", fontWeight: 700, borderRadius: 16, fontSize: 18, marginBottom: 15 }}>
+        <button type="button" onClick={onRegister} style={{ width: "100%", padding: 20, background: isReg ? "#222" : "#00ff88", color: isReg ? "#fff" : "#000", fontWeight: 700, borderRadius: 16, fontSize: 18, marginBottom: 15 }}>
           {isReg ? "EDITAR MI REGISTRO" : "REGISTRAR TICKET"}
         </button>
         
@@ -149,7 +178,7 @@ function GuestView({ attendee, onRegister, onStaffMode }) {
           CONTACTAR A DELINO
         </a>
       </div>
-      <button onClick={onStaffMode} style={{ color: "#444", fontSize: 12, background: "none", border: "none", marginTop: 40 }}>MODO STAFF</button>
+      <button type="button" onClick={onStaffMode} style={{ color: "#444", fontSize: 12, background: "none", border: "none", marginTop: 40 }}>MODO STAFF</button>
     </div>
   );
 }
@@ -227,18 +256,18 @@ function AttendeeList({ attendees, onSelect, onScanNav, onLogout, loading }) {
   }, [attendees, query]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
       <div style={{ padding: 20, background: "#0d0d0d" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
           <h2 style={{ fontSize: 24, fontWeight: 900 }}>DHS STAFF</h2>
-          <button onClick={onScanNav} style={{ background: "#00ff88", color: "#000", border: "none", padding: "10px 15px", borderRadius: 8, fontWeight: 800, display: "flex", alignItems: "center", gap: 5 }}><IconScan /> SCAN</button>
+          <button type="button" onClick={onScanNav} style={{ background: "#00ff88", color: "#000", border: "none", padding: "10px 15px", borderRadius: 8, fontWeight: 800, display: "flex", alignItems: "center", gap: 5 }}><IconScan /> SCAN</button>
         </div>
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar ticket o nombre..." style={{ width: "100%", padding: 14, background: "#1a1a1a", border: "1px solid #333", color: "#fff", borderRadius: 10 }} />
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px" }}>
+      <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "0 20px 20px" }}>
         {loading ? <div style={{ textAlign: "center", padding: 20, color: "#666" }}>Cargando lista...</div> : 
           filtered.map(a => (
-          <div key={a.ticket_id} onClick={() => onSelect(a.ticket_id)} style={{ padding: "15px 0", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+          <div key={a.ticket_id} onClick={() => onSelect(a.ticket_id)} role="button" tabIndex={0} onKeyDown={(e) => e.key === "Enter" && onSelect(a.ticket_id)} style={{ padding: "15px 0", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", touchAction: "manipulation" }}>
             <div>
               <div style={{ fontWeight: 700, color: "#fff" }}>{a.ticket_id}</div>
               <div style={{ fontSize: 14, color: (a.first_name || a.last_name) ? "#888" : "#ff4444" }}>{(a.first_name || a.last_name) ? `${a.first_name} ${a.last_name}` : "No registrado"}</div>
@@ -247,7 +276,7 @@ function AttendeeList({ attendees, onSelect, onScanNav, onLogout, loading }) {
           </div>
         ))}
       </div>
-      <button onClick={onLogout} style={{ padding: 15, color: "#ff4444", background: "none", border: "none", fontSize: 12 }}>SALIR DE STAFF</button>
+      <button type="button" onClick={onLogout} style={{ padding: 15, color: "#ff4444", background: "none", border: "none", fontSize: 12 }}>SALIR DE STAFF</button>
     </div>
   );
 }
@@ -256,7 +285,7 @@ function AttendeeDetail({ attendee, onCheckIn, onUndo, onRegister, onBack, savin
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={{ padding: 20, display: "flex", alignItems: "center", gap: 15 }}>
-        <button onClick={onBack} style={{ background: "none", border: "none", color: "#fff" }}><IconBack /></button>
+        <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: "#fff" }}><IconBack /></button>
         <span style={{ fontWeight: 700 }}>STAFF: DETALLE</span>
       </div>
       <div style={{ flex: 1, padding: 25 }}>
@@ -266,12 +295,12 @@ function AttendeeDetail({ attendee, onCheckIn, onUndo, onRegister, onBack, savin
            {attendee.checked_in ? <><IconCheck /><span style={{ color: "#00ff88", fontWeight: 600 }}>CHECK-IN OK</span></> : <span style={{ color: "#444" }}>Pendiente de entrada</span>}
         </div>
 
-        <button onClick={onRegister} style={{ width: "100%", padding: 16, background: "#1a1a1a", border: "1px solid #333", color: "#fff", borderRadius: 12, marginBottom: 15 }}>EDITAR REGISTRO</button>
+        <button type="button" onClick={onRegister} style={{ width: "100%", padding: 16, background: "#1a1a1a", border: "1px solid #333", color: "#fff", borderRadius: 12, marginBottom: 15 }}>EDITAR REGISTRO</button>
         
         {!attendee.checked_in ? (
-          <button onClick={() => onCheckIn(attendee.ticket_id)} disabled={saving} style={{ width: "100%", padding: 20, background: "#00ff88", color: "#000", fontWeight: 800, borderRadius: 16, fontSize: 18 }}>{saving ? "PROCESANDO..." : "HACER CHECK-IN"}</button>
+          <button type="button" onClick={() => onCheckIn(attendee.ticket_id)} disabled={saving} style={{ width: "100%", padding: 20, background: "#00ff88", color: "#000", fontWeight: 800, borderRadius: 16, fontSize: 18 }}>{saving ? "PROCESANDO..." : "HACER CHECK-IN"}</button>
         ) : (
-          <button onClick={() => onUndo(attendee.ticket_id)} disabled={saving} style={{ width: "100%", padding: 20, background: "#ff444422", color: "#ff4444", fontWeight: 700, border: "1px solid #ff4444", borderRadius: 16 }}>{saving ? "REVIRTIENDO..." : "ANULAR CHECK-IN"}</button>
+          <button type="button" onClick={() => onUndo(attendee.ticket_id)} disabled={saving} style={{ width: "100%", padding: 20, background: "#ff444422", color: "#ff4444", fontWeight: 700, border: "1px solid #ff4444", borderRadius: 16 }}>{saving ? "REVIRTIENDO..." : "ANULAR CHECK-IN"}</button>
         )}
       </div>
     </div>
@@ -297,7 +326,7 @@ function QRScanner({ onScan, onClose }) {
             ctx.drawImage(videoRef.current, 0, 0);
             const imgData = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
             const code = jsQR(imgData.data, imgData.width, imgData.height);
-            if (code) { onScan(code.data); return; }
+            if (code) { const ticketId = normalizeTicketId(code.data); if (ticketId) { onScan(ticketId); return; } }
           }
           anim = requestAnimationFrame(tick);
         };
@@ -311,7 +340,7 @@ function QRScanner({ onScan, onClose }) {
     <div style={{ height: "100%", background: "#000", position: "relative" }}>
       <video ref={videoRef} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
       <canvas ref={canvasRef} style={{ display: "none" }} />
-      <button onClick={onClose} style={{ position: "absolute", top: 20, left: 20, background: "#fff", border: "none", padding: 10, borderRadius: "50%", zIndex: 10 }}><IconBack /></button>
+      <button type="button" onClick={onClose} style={{ position: "absolute", top: 20, left: 20, background: "#fff", border: "none", padding: 10, borderRadius: "50%", zIndex: 10 }}><IconBack /></button>
     </div>
   );
 }
@@ -400,7 +429,7 @@ export default function App() {
   if (screen === "staffLogin") return <StaffLogin onLogin={login} onCancel={() => setScreen(selectedId ? (isStaff ? "detail" : "guest") : "list")} />;
 
   return (
-    <div style={{ maxWidth: 500, margin: "0 auto", background: "#0a0a0a", height: "100vh", color: "#fff", overflow: "hidden", fontFamily: "sans-serif", position: "relative" }}>
+    <div style={{ maxWidth: 500, margin: "0 auto", background: "#0a0a0a", minHeight: "100dvh", color: "#fff", overflowY: "auto", overflowX: "hidden", fontFamily: "sans-serif", position: "relative", WebkitOverflowScrolling: "touch" }}>
       {ticketLoading && <div style={{ padding: 50, textAlign: "center", color: "#666" }}>Cargando ticket...</div>}
 
       {!ticketLoading && (
@@ -411,7 +440,7 @@ export default function App() {
             <div style={{ padding: 40, textAlign: "center", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
               <h1 style={{ fontWeight: 900, fontSize: 40, marginBottom: 10 }}>DHS 2026</h1>
               <p style={{ color: "#666", lineHeight: 1.5 }}>Escanea tu ticket físico para ver tus detalles o completar tu registro.</p>
-              <button onClick={() => setScreen("staffLogin")} style={{ marginTop: 60, color: "#222", border: "none", background: "none", fontSize: 12 }}>Staff Access</button>
+              <button type="button" onClick={() => setScreen("staffLogin")} style={{ marginTop: 60, color: "#222", border: "none", background: "none", fontSize: 12 }}>Staff Access</button>
             </div>
           )}
 
