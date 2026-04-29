@@ -25,54 +25,25 @@ function normalizeTicketId(value) {
   const raw = String(value).trim();
 
   try {
-    const url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
-
-    const fromQuery =
-      url.searchParams.get("ticket") ||
-      url.searchParams.get("ticket_id") ||
-      url.searchParams.get("id");
-
-    if (fromQuery) {
-      const match = String(fromQuery).match(/DHS26-\d{3}/i);
-      return match ? match[0].toUpperCase() : "";
-    }
-
+    const url = new URL(raw);
+    const fromQuery = url.searchParams.get("ticket") || url.searchParams.get("ticket_id") || url.searchParams.get("id");
+    if (fromQuery) return fromQuery.trim().toUpperCase();
     const matchFromPath = url.pathname.match(/DHS26-\d{3}/i);
     if (matchFromPath) return matchFromPath[0].toUpperCase();
-
-    return "";
   } catch {
-    const match = raw.match(/DHS26-\d{3}/i);
-    return match ? match[0].toUpperCase() : "";
+    // Not a URL.
   }
+
+  const match = raw.match(/DHS26-\d{3}/i);
+  return match ? match[0].toUpperCase() : raw.toUpperCase();
 }
 
-function normalizeTicket(ticket, index = null) {
-  const possibleTicketId =
-    ticket?.ticket_id ||
-    ticket?.Ticket_ID ||
-    ticket?.["Ticket ID"] ||
-    ticket?.qr_id ||
-    ticket?.QR_ID ||
-    ticket?.qr_text ||
-    ticket?.QR_TEXT ||
-    ticket?.registration_url ||
-    ticket?.Registration_URL ||
-    "";
-
-  const fallbackTicketId = index !== null ? `DHS26-${String(index + 1).padStart(3, "0")}` : "";
-  const cleanTicketId = normalizeTicketId(possibleTicketId) || fallbackTicketId;
-
+function normalizeTicket(ticket) {
   return {
     ...ticket,
-    ticket_id: cleanTicketId,
+    ticket_id: normalizeTicketId(ticket?.ticket_id || ticket?.Ticket_ID || ""),
     first_name: ticket?.first_name || ticket?.["First Name"] || "",
     last_name: ticket?.last_name || ticket?.["Last Name"] || "",
-    job_role: ticket?.job_role || ticket?.["Job Role"] || "",
-    cosmetology_license: ticket?.cosmetology_license || ticket?.["Cosmetology License"] || "",
-    phone: ticket?.phone || ticket?.Phone || "",
-    email: ticket?.email || ticket?.Email || "",
-    vendor_rep: ticket?.vendor_rep || ticket?.["Vendor Rep"] || "",
     registered: ticket?.registered ?? "NO",
     checked_in:
       ticket?.checked_in === true ||
@@ -103,7 +74,7 @@ async function apiGetTicket(ticketId) {
 async function apiListTickets() {
   const data = await fetchJson(`${API_URL}?action=list`);
   if (!data.success) throw new Error(data.error || "Could not load tickets");
-  return data.tickets.map((ticket, index) => normalizeTicket(ticket, index));
+  return data.tickets.map(normalizeTicket);
 }
 
 async function apiRegisterTicket(formData) {
@@ -315,7 +286,7 @@ function QRScanner({ onScan, onClose }) {
         <canvas ref={canvasRef} style={{ display: "none" }} />
 
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-          <div style={{ position: "relative", width: 220, height: 220 }}>
+          <div style={{ relative: "relative", width: 220, height: 220 }}>
             {[["top", "left"], ["top", "right"], ["bottom", "left"], ["bottom", "right"]].map(([v, h]) => (
               <div
                 key={`${v}-${h}`}
@@ -492,16 +463,11 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 100px", WebkitOverflowScrolling: "touch" }}>
-        {loading && attendees.length === 0 && (
-          <div style={{ textAlign: "center", padding: "48px 0", color: "#666", fontFamily: "'Space Mono', monospace" }}>Cargando lista...</div>
-        )}
-
-        {!loading && filtered.length === 0 && (
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 100px" }}>
+        {filtered.length === 0 && (
           <div style={{ textAlign: "center", padding: "48px 0", color: "#444", fontFamily: "'Space Mono', monospace" }}>Sin resultados para "{query}"</div>
         )}
-
-        {!loading && filtered.map((a) => {
+        {filtered.map((a) => {
           const checked = isCheckedIn(a);
           const registered = isRegistered(a);
           const name = [a.first_name, a.last_name].filter(Boolean).join(" ");
@@ -511,9 +477,9 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
               type="button"
               key={a.ticket_id}
               onClick={() => onSelect(a.ticket_id)}
-              style={{ width: "100%", background: "#111", border: `1px solid ${checked ? "#1a3a1a" : registered ? "#252520" : "#2a1a1a"}`, borderRadius: 14, padding: "16px 18px", marginBottom: 10, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", textAlign: "left", position: "relative", overflow: "hidden", touchAction: "manipulation", WebkitAppearance: "none" }}
+              style={{ width: "100%", background: "#111", border: `1px solid ${checked ? "#1a3a1a" : registered ? "#252520" : "#2a1a1a"}`, borderRadius: 14, padding: "16px 18px", marginBottom: 10, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", textAlign: "left", position: "relative", overflow: "hidden" }}
             >
-              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: checked ? "#00ff88" : registered ? "#fbbf24" : "#ff4444", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: checked ? "#00ff88" : registered ? "#fbbf24" : "#ff4444" }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: "#fff" }}>{a.ticket_id}</span>
@@ -522,7 +488,7 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
                 <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: registered ? "#aaa" : "#ff7777" }}>{registered ? name || a.email || "-" : "No registrado"}</div>
                 {a.email && registered && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#555", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.email}</div>}
               </div>
-              <div style={{ width: 32, height: 32, background: checked ? "#00ff88" : "#1a1a1a", borderRadius: "50%", border: checked ? "none" : "1px solid #2a2a2a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#000", pointerEvents: "none" }}>{checked && <IconCheck />}</div>
+              <div style={{ width: 32, height: 32, background: checked ? "#00ff88" : "#1a1a1a", borderRadius: "50%", border: checked ? "none" : "1px solid #2a2a2a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#000" }}>{checked && <IconCheck />}</div>
             </button>
           );
         })}
@@ -651,7 +617,7 @@ function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack
 
 export default function App() {
   const [screen, setScreen] = useState("list");
-  const [attendees, setAttendees] = useState([]);
+  const [attendees, setAttendees] = useState(FALLBACK_ATTENDEES);
   const [selectedId, setSelectedId] = useState(null);
   const [notFoundMsg, setNotFoundMsg] = useState("");
   const [loading, setLoading] = useState(false);
@@ -693,24 +659,19 @@ export default function App() {
     setLoading(true);
     try {
       const rows = await apiListTickets();
-      setAttendees(rows);
+      setAttendees(rows.map(normalizeTicket));
     } catch {
-      setAttendees(FALLBACK_ATTENDEES);
-      showError("No se pudo cargar la hoja. Usando lista local.");
+      // Keep fallback list
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    const ticketFromUrl = normalizeTicketId(window.location.href);
-
-    if (ticketFromUrl) {
-      handleSelect(ticketFromUrl);
-      return;
-    }
-
     refreshList();
+    const params = new URLSearchParams(window.location.search);
+    const ticketFromUrl = params.get("ticket") || params.get("ticket_id") || params.get("id");
+    if (ticketFromUrl) handleSelect(normalizeTicketId(ticketFromUrl));
   }, [handleSelect]);
 
   async function handleCheckIn(ticketId) {
@@ -793,8 +754,7 @@ export default function App() {
           display: "flex",
           flexDirection: "column",
           color: "#fff",
-          overflowY: "auto",
-          overflowX: "hidden"
+          overflow: "hidden"
         }}
       >
         {screen === "list" && (
