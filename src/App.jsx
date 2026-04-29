@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import jsQR from "jsqr";
 
 const API_URL = "https://script.google.com/macros/s/AKfycbw9mRofEQdVmM-RS9c6awsFWSz2HLxywNjBCoyU9MWC_AAIxfQYyf57tRKjN6FYo4-Isw/exec";
+const STAFF_PASSWORD = "delino2026";
 
 const FALLBACK_ATTENDEES = Array.from({ length: 100 }, (_, i) => ({
   ticket_id: `DHS26-${String(i + 1).padStart(3, "0")}`,
@@ -15,8 +16,7 @@ const FALLBACK_ATTENDEES = Array.from({ length: 100 }, (_, i) => ({
   registered: "NO",
   qr_scanned: 0,
   checked_in: false,
-  check_in_time: "",
-})); [cite: 2]
+}));
 
 // --- UTILS ---
 
@@ -24,15 +24,16 @@ function normalizeTicketId(value) {
   if (!value) return "";
   const raw = String(value).trim();
   try {
-    const url = new URL(raw);
+    const url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+    const pathMatch = url.pathname.match(/DHS26-\d{3}/i);
+    if (pathMatch) return pathMatch[0].toUpperCase();
+    
     const fromQuery = url.searchParams.get("ticket") || url.searchParams.get("ticket_id") || url.searchParams.get("id");
     if (fromQuery) return fromQuery.trim().toUpperCase();
-    const matchFromPath = url.pathname.match(/DHS26-\d{3}/i);
-    if (matchFromPath) return matchFromPath[0].toUpperCase();
   } catch { /* Not a URL */ }
   const match = raw.match(/DHS26-\d{3}/i);
   return match ? match[0].toUpperCase() : raw.toUpperCase();
-} [cite: 3, 4, 5, 6, 7]
+}
 
 function normalizeTicket(ticket) {
   return {
@@ -40,13 +41,16 @@ function normalizeTicket(ticket) {
     ticket_id: normalizeTicketId(ticket?.ticket_id || ticket?.Ticket_ID || ""),
     first_name: ticket?.first_name || ticket?.["First Name"] || "",
     last_name: ticket?.last_name || ticket?.["Last Name"] || "",
+    job_role: ticket?.job_role || "",
+    cosmetology_license: ticket?.cosmetology_license || "",
+    vendor_rep: ticket?.vendor_rep || "",
     registered: ticket?.registered ?? "NO",
     checked_in:
       ticket?.checked_in === true ||
       ticket?.qr_scanned === 1 ||
       String(ticket?.qr_scanned).toUpperCase() === "TRUE",
   };
-} [cite: 7, 8, 9, 10]
+}
 
 async function fetchJson(url, options) {
   const response = await fetch(url, options);
@@ -54,9 +58,9 @@ async function fetchJson(url, options) {
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error(text || "Server returned invalid JSON");
+    throw new Error(text || "Server Error");
   }
-} [cite: 10, 11, 12]
+}
 
 // --- API ---
 
@@ -65,247 +69,90 @@ async function apiGetTicket(ticketId) {
   const data = await fetchJson(`${API_URL}?ticket_id=${encodeURIComponent(cleanId)}`);
   if (!data.success) throw new Error(data.error || "Ticket not found");
   return normalizeTicket(data.ticket);
-} [cite: 13, 14]
+}
 
 async function apiListTickets() {
   const data = await fetchJson(`${API_URL}?action=list`);
   if (!data.success) throw new Error(data.error || "Could not load tickets");
   return data.tickets.map(normalizeTicket);
-} [cite: 15, 16]
+}
 
 async function apiRegisterTicket(formData) {
   const data = await fetchJson(API_URL, {
     method: "POST",
-    body: JSON.stringify({
-      action: "register",
-      ...formData,
-      ticket_id: normalizeTicketId(formData.ticket_id),
-    }),
+    body: JSON.stringify({ action: "register", ...formData, ticket_id: normalizeTicketId(formData.ticket_id) }),
   });
   if (!data.success) throw new Error(data.error || "Registration failed");
   return normalizeTicket(data.ticket);
-} [cite: 16, 17]
+}
 
 async function apiCheckInTicket(ticketId) {
   const data = await fetchJson(API_URL, {
     method: "POST",
-    body: JSON.stringify({
-      action: "check_in",
-      ticket_id: normalizeTicketId(ticketId),
-    }),
+    body: JSON.stringify({ action: "check_in", ticket_id: normalizeTicketId(ticketId) }),
   });
   if (!data.success) throw new Error(data.error || "Check-in failed");
   return normalizeTicket(data.ticket);
-} [cite: 18, 19]
+}
 
 async function apiUndoCheckInTicket(ticketId) {
   const data = await fetchJson(API_URL, {
     method: "POST",
-    body: JSON.stringify({
-      action: "undo_check_in",
-      ticket_id: normalizeTicketId(ticketId),
-    }),
+    body: JSON.stringify({ action: "undo_check_in", ticket_id: normalizeTicketId(ticketId) }),
   });
-  if (!data.success) throw new Error(data.error || "Undo check-in failed");
+  if (!data.success) throw new Error(data.error || "Undo failed");
   return normalizeTicket(data.ticket);
-} [cite: 20, 21]
-
-// --- LOGIC HELPERS ---
-
-function isRegistered(attendee) {
-  return Boolean(
-    attendee?.first_name ||
-      attendee?.last_name ||
-      attendee?.email ||
-      attendee?.registered === true ||
-      String(attendee?.registered).toUpperCase() === "YES" ||
-      String(attendee?.registered).toUpperCase() === "TRUE"
-  );
-} [cite: 22]
-
-function isCheckedIn(attendee) {
-  return Boolean(
-    attendee?.checked_in === true ||
-      attendee?.qr_scanned === 1 ||
-      String(attendee?.qr_scanned).toUpperCase() === "TRUE"
-  );
-} [cite: 23]
-
-function roleBadge(role) {
-  if (!role) return { bg: "#2a2a2a", text: "#888", label: "-" };
-  const r = String(role).toUpperCase();
-  if (r.includes("ESTILISTA")) return { bg: "#1a2f1a", text: "#4ade80", label: "ESTILISTA" };
-  if (r.includes("PROPIETARIO")) return { bg: "#1a1f3a", text: "#60a5fa", label: "PROPIETARIO" };
-  if (r.includes("ESTUDIANTE")) return { bg: "#2a1a2f", text: "#c084fc", label: "ESTUDIANTE" };
-  return { bg: "#2a2a1a", text: "#fbbf24", label: role };
-} [cite: 24, 25, 26, 27]
+}
 
 // --- ICONS ---
 
-const IconSearch = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-  </svg>
-);
-const IconScan = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M8 12h8" />
-  </svg>
-);
-const IconBack = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M19 12H5M12 5l-7 7 7 7" />
-  </svg>
-);
-const IconCheck = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="20 6 9 17 4 12" />
-  </svg>
-);
-const IconUser = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-  </svg>
-);
-const IconUndo = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
-  </svg>
-); [cite: 28, 29, 30, 31, 32, 33]
+const IconBack = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>;
+const IconCheck = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00ff88" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>;
+const IconScan = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M8 12h8" /></svg>;
 
 // --- COMPONENTS ---
 
-function QRScanner({ onScan, onClose }) {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const streamRef = useRef(null);
-  const animRef = useRef(null);
-  const [status, setStatus] = useState("Iniciando cámara...");
-  const [manualInput, setManualInput] = useState("");
-
-  useEffect(() => {
-    let active = true;
-    function stopCamera() {
-      active = false;
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
-    }
-    function scanFrame() {
-      if (!active) return;
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "attemptBoth" });
-        if (code?.data) {
-          stopCamera();
-          onScan(normalizeTicketId(code.data));
-          return;
-        }
-      }
-      animRef.current = requestAnimationFrame(scanFrame);
-    }
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        if (!active) return;
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          setStatus("Apunta al código QR del ticket");
-          scanFrame();
-        }
-      } catch { setStatus("No se pudo usar la cámara. Usa entrada manual."); }
-    }
-    startCamera();
-    return () => stopCamera();
-  }, [onScan]);
-
+function StaffLogin({ onLogin, onCancel }) {
+  const [pass, setPass] = useState("");
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (pass === STAFF_PASSWORD) onLogin();
+    else alert("Contraseña incorrecta");
+  };
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#000" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a" }}>
-        <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: "#aaa" }}><IconBack /></button>
-        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: "#fff" }}>ESCANEAR TICKET</span>
-      </div>
-      <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        <video ref={videoRef} style={{ width: "100%", height: "100%", objectFit: "cover" }} playsInline muted />
-        <canvas ref={canvasRef} style={{ display: "none" }} />
-      </div>
-      <div style={{ textAlign: "center", padding: 12, color: "#aaa" }}>{status}</div>
-      <div style={{ padding: 20 }}>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input value={manualInput} onChange={(e) => setManualInput(e.target.value)} placeholder="DHS26-001" style={{ flex: 1, padding: 13, background: "#1a1a1a", border: "1px solid #2a2a2a", color: "#fff" }} />
-          <button onClick={() => onScan(normalizeTicketId(manualInput))} style={{ padding: "13px 20px", background: "#00ff88", fontWeight: 700 }}>IR</button>
-        </div>
-      </div>
+    <div style={{ padding: 40, textAlign: "center", height: "100vh", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      <h2 style={{ marginBottom: 20 }}>Acceso Staff</h2>
+      <form onSubmit={handleSubmit}>
+        <input autoFocus type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="Contraseña" 
+               style={{ width: "100%", padding: 15, background: "#1a1a1a", border: "1px solid #333", color: "#fff", marginBottom: 20, textAlign: "center", fontSize: 18 }} />
+        <button type="submit" style={{ width: "100%", padding: 15, background: "#00ff88", fontWeight: 700, borderRadius: 8 }}>ENTRAR</button>
+        <button type="button" onClick={onCancel} style={{ marginTop: 20, color: "#888", background: "none", border: "none" }}>Cancelar</button>
+      </form>
     </div>
   );
-} [cite: 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 55, 56, 57]
+}
 
-function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
-  const [query, setQuery] = useState("");
-  const filtered = useMemo(() => {
-    if (!query) return attendees;
-    const q = query.toLowerCase();
-    return attendees.filter(a => a.ticket_id?.toLowerCase().includes(q) || (a.first_name || "").toLowerCase().includes(q) || (a.last_name || "").toLowerCase().includes(q));
-  }, [attendees, query]);
-
+function GuestView({ attendee, onRegister, onStaffMode }) {
+  const isReg = attendee?.first_name || attendee?.last_name;
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ padding: 20, background: "#0d0d0d" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>DHS 2026</div>
-          <button onClick={onScanNav} style={{ background: "#00ff88", padding: "12px 18px", fontWeight: 700, borderRadius: 12 }}><IconScan /> SCAN</button>
-        </div>
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar..." style={{ width: "100%", marginTop: 16, padding: 13, background: "#1a1a1a", border: "1px solid #2a2a2a", color: "#fff" }} />
+    <div style={{ padding: 30, textAlign: "center", display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <h2 style={{ color: "#aaa", fontSize: 16, marginBottom: 10 }}>TICKET {attendee.ticket_id}</h2>
+        <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 20 }}>{isReg ? "YA ESTÁS REGISTRADO" : "BIENVENIDO"}</h1>
+        {isReg && <div style={{ fontSize: 24, color: "#00ff88", marginBottom: 40 }}>{attendee.first_name} {attendee.last_name}</div>}
+        
+        <button onClick={onRegister} style={{ width: "100%", padding: 20, background: isReg ? "#222" : "#00ff88", color: isReg ? "#fff" : "#000", fontWeight: 700, borderRadius: 16, fontSize: 18, marginBottom: 15 }}>
+          {isReg ? "EDITAR MI REGISTRO" : "REGISTRAR TICKET"}
+        </button>
+        
+        <a href="tel:9726680516" style={{ width: "100%", padding: 15, background: "#111", border: "1px solid #333", color: "#ccc", textDecoration: "none", fontWeight: 600, borderRadius: 16, fontSize: 16 }}>
+          CONTACTAR A DELINO
+        </a>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
-        {filtered.map(a => (
-          <button key={a.ticket_id} onClick={() => onSelect(a.ticket_id)} style={{ width: "100%", padding: 16, background: "#111", marginBottom: 10, textAlign: "left", display: "flex", alignItems: "center", border: "1px solid #222" }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700 }}>{a.ticket_id}</div>
-              <div style={{ color: isRegistered(a) ? "#aaa" : "#ff7777" }}>{isRegistered(a) ? `${a.first_name} ${a.last_name}` : "No registrado"}</div>
-            </div>
-            {isCheckedIn(a) && <IconCheck />}
-          </button>
-        ))}
-      </div>
+      <button onClick={onStaffMode} style={{ color: "#444", fontSize: 12, background: "none", border: "none", marginTop: 40 }}>MODO STAFF</button>
     </div>
   );
-} [cite: 72, 73, 74, 75, 76, 78, 79, 80, 81, 82, 83, 84, 85, 86]
-
-function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack, saving }) {
-  const checked = isCheckedIn(attendee);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ padding: 20, background: "#0d0d0d", display: "flex", gap: 14 }}>
-        <button onClick={onBack}><IconBack /></button>
-        <div style={{ fontSize: 20, fontWeight: 700 }}>{attendee.ticket_id}</div>
-      </div>
-      <div style={{ flex: 1, padding: 20 }}>
-        <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 20 }}>{isRegistered(attendee) ? `${attendee.first_name} ${attendee.last_name}` : "No registrado"}</div>
-        {checked && (
-          <div style={{ background: "#0a1f0a", padding: 20, borderRadius: 16, display: "flex", alignItems: "center", gap: 12 }}>
-            <IconCheck />
-            <div style={{ flex: 1, color: "#00ff88" }}>Check-in completo</div>
-            <button onClick={() => onUndoCheckIn(attendee.ticket_id)} disabled={saving}><IconUndo /></button>
-          </div>
-        )}
-      </div>
-      <div style={{ padding: 20 }}>
-        <button onClick={() => onRegister(attendee.ticket_id)} style={{ width: "100%", padding: 16, background: "#222", marginBottom: 10 }}>EDITAR REGISTRO</button>
-        {!checked && isRegistered(attendee) && (
-          <button onClick={() => onCheckIn(attendee.ticket_id)} disabled={saving} style={{ width: "100%", padding: 20, background: "#00ff88", fontWeight: 700 }}>HACER CHECK-IN</button>
-        )}
-      </div>
-    </div>
-  );
-} [cite: 88, 89, 92, 93, 95, 96, 98, 99, 100, 101, 102, 103, 105, 106, 107, 108, 109]
+}
 
 function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving }) {
   const [form, setForm] = useState({
@@ -313,116 +160,274 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving }) {
     first_name: initial?.first_name || "",
     last_name: initial?.last_name || "",
     job_role: initial?.job_role || "",
+    cosmetology_license: initial?.cosmetology_license || "",
     phone: initial?.phone || "",
     email: initial?.email || "",
+    vendor_rep: initial?.vendor_rep || "",
   });
-  const canSubmit = form.first_name && form.last_name && form.phone && form.email && !saving;
+
+  const canSubmit = form.first_name && form.last_name && !saving;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ padding: 20, background: "#0d0d0d", display: "flex", gap: 14 }}>
-        <button onClick={onCancel}><IconBack /></button>
-        <div style={{ fontSize: 20, fontWeight: 700 }}>REGISTRO</div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0a0a0a" }}>
+      <div style={{ padding: "20px 20px", display: "flex", alignItems: "center", gap: 15, borderBottom: "1px solid #1a1a1a" }}>
+        <button onClick={onCancel} style={{ background: "none", border: "none", color: "#fff" }}><IconBack /></button>
+        <span style={{ fontWeight: 700 }}>{initial?.first_name ? "EDITAR REGISTRO" : "REGISTRO DE TICKET"}</span>
       </div>
-      <div style={{ flex: 1, padding: 20, overflowY: "auto" }}>
-        <input placeholder="Nombre" value={form.first_name} onChange={e => setForm({...form, first_name: e.target.value})} style={{ width: "100%", padding: 14, background: "#111", marginBottom: 14 }} />
-        <input placeholder="Apellido" value={form.last_name} onChange={e => setForm({...form, last_name: e.target.value})} style={{ width: "100%", padding: 14, background: "#111", marginBottom: 14 }} />
-        <input placeholder="Email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} style={{ width: "100%", padding: 14, background: "#111", marginBottom: 14 }} />
-        <input placeholder="Teléfono" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} style={{ width: "100%", padding: 14, background: "#111" }} />
+      <div style={{ flex: 1, padding: 25, overflowY: "auto" }}>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ color: "#666", fontSize: 12 }}>TICKET ID</label>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{ticketId}</div>
+        </div>
+        <input placeholder="Nombre" value={form.first_name} onChange={e => setForm({...form, first_name: e.target.value})} style={{ width: "100%", padding: 16, background: "#161616", border: "1px solid #222", color: "#fff", marginBottom: 15, borderRadius: 12 }} />
+        <input placeholder="Apellido" value={form.last_name} onChange={e => setForm({...form, last_name: e.target.value})} style={{ width: "100%", padding: 16, background: "#161616", border: "1px solid #222", color: "#fff", marginBottom: 15, borderRadius: 12 }} />
+        
+        <select
+          value={form.job_role}
+          onChange={e => setForm({ ...form, job_role: e.target.value })}
+          style={{ width: "100%", padding: 16, background: "#161616", border: "1px solid #222", color: "#fff", marginBottom: 15, borderRadius: 12 }}
+        >
+          <option value="">Puesto de trabajo</option>
+          <option value="ESTILISTA">ESTILISTA</option>
+          <option value="PROPIETARIO DE SALON DE BELLEZA">PROPIETARIO DE SALON DE BELLEZA</option>
+          <option value="ESTUDIANTE">ESTUDIANTE</option>
+        </select>
+
+        <input
+          placeholder="Licencia de cosmetología"
+          value={form.cosmetology_license}
+          onChange={e => setForm({ ...form, cosmetology_license: e.target.value })}
+          style={{ width: "100%", padding: 16, background: "#161616", border: "1px solid #222", color: "#fff", marginBottom: 15, borderRadius: 12 }}
+        />
+
+        <input placeholder="Teléfono" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} style={{ width: "100%", padding: 16, background: "#161616", border: "1px solid #222", color: "#fff", marginBottom: 15, borderRadius: 12 }} />
+        <input placeholder="Email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} style={{ width: "100%", padding: 16, background: "#161616", border: "1px solid #222", color: "#fff", marginBottom: 15, borderRadius: 12 }} />
+        
+        <input
+          placeholder="Vendedor / Representante"
+          value={form.vendor_rep}
+          onChange={e => setForm({ ...form, vendor_rep: e.target.value })}
+          style={{ width: "100%", padding: 16, background: "#161616", border: "1px solid #222", color: "#fff", marginBottom: 15, borderRadius: 12 }}
+        />
       </div>
       <div style={{ padding: 20 }}>
-        <button onClick={() => onSubmit(form)} disabled={!canSubmit} style={{ width: "100%", padding: 20, background: canSubmit ? "#fbbf24" : "#1a1a1a", fontWeight: 700 }}>{saving ? "GUARDANDO..." : "GUARDAR REGISTRO"}</button>
+        <button onClick={() => onSubmit(form)} disabled={!canSubmit} style={{ width: "100%", padding: 20, background: canSubmit ? "#fbbf24" : "#1a1a1a", color: "#000", fontWeight: 800, borderRadius: 16, fontSize: 18 }}>
+          {saving ? "GUARDANDO..." : "GUARDAR"}
+        </button>
       </div>
     </div>
   );
-} [cite: 61, 62, 63, 64, 65, 68, 69, 70, 71]
+}
+
+function AttendeeList({ attendees, onSelect, onScanNav, onLogout, loading }) {
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase();
+    return attendees.filter(a => a.ticket_id.toLowerCase().includes(q) || (a.first_name + a.last_name).toLowerCase().includes(q));
+  }, [attendees, query]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ padding: 20, background: "#0d0d0d" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 }}>
+          <h2 style={{ fontSize: 24, fontWeight: 900 }}>DHS STAFF</h2>
+          <button onClick={onScanNav} style={{ background: "#00ff88", color: "#000", border: "none", padding: "10px 15px", borderRadius: 8, fontWeight: 800, display: "flex", alignItems: "center", gap: 5 }}><IconScan /> SCAN</button>
+        </div>
+        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar ticket o nombre..." style={{ width: "100%", padding: 14, background: "#1a1a1a", border: "1px solid #333", color: "#fff", borderRadius: 10 }} />
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px" }}>
+        {loading ? <div style={{ textAlign: "center", padding: 20, color: "#666" }}>Cargando lista...</div> : 
+          filtered.map(a => (
+          <div key={a.ticket_id} onClick={() => onSelect(a.ticket_id)} style={{ padding: "15px 0", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+            <div>
+              <div style={{ fontWeight: 700, color: "#fff" }}>{a.ticket_id}</div>
+              <div style={{ fontSize: 14, color: (a.first_name || a.last_name) ? "#888" : "#ff4444" }}>{(a.first_name || a.last_name) ? `${a.first_name} ${a.last_name}` : "No registrado"}</div>
+            </div>
+            {a.checked_in && <IconCheck />}
+          </div>
+        ))}
+      </div>
+      <button onClick={onLogout} style={{ padding: 15, color: "#ff4444", background: "none", border: "none", fontSize: 12 }}>SALIR DE STAFF</button>
+    </div>
+  );
+}
+
+function AttendeeDetail({ attendee, onCheckIn, onUndo, onRegister, onBack, saving }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ padding: 20, display: "flex", alignItems: "center", gap: 15 }}>
+        <button onClick={onBack} style={{ background: "none", border: "none", color: "#fff" }}><IconBack /></button>
+        <span style={{ fontWeight: 700 }}>STAFF: DETALLE</span>
+      </div>
+      <div style={{ flex: 1, padding: 25 }}>
+        <div style={{ fontSize: 14, color: "#888", marginBottom: 5 }}>TICKET {attendee.ticket_id}</div>
+        <div style={{ fontSize: 32, fontWeight: 800, marginBottom: 10 }}>{(attendee.first_name || attendee.last_name) ? `${attendee.first_name} ${attendee.last_name}` : "No registrado"}</div>
+        <div style={{ marginBottom: 30, display: "flex", alignItems: "center", gap: 8 }}>
+           {attendee.checked_in ? <><IconCheck /><span style={{ color: "#00ff88", fontWeight: 600 }}>CHECK-IN OK</span></> : <span style={{ color: "#444" }}>Pendiente de entrada</span>}
+        </div>
+
+        <button onClick={onRegister} style={{ width: "100%", padding: 16, background: "#1a1a1a", border: "1px solid #333", color: "#fff", borderRadius: 12, marginBottom: 15 }}>EDITAR REGISTRO</button>
+        
+        {!attendee.checked_in ? (
+          <button onClick={() => onCheckIn(attendee.ticket_id)} disabled={saving} style={{ width: "100%", padding: 20, background: "#00ff88", color: "#000", fontWeight: 800, borderRadius: 16, fontSize: 18 }}>{saving ? "PROCESANDO..." : "HACER CHECK-IN"}</button>
+        ) : (
+          <button onClick={() => onUndo(attendee.ticket_id)} disabled={saving} style={{ width: "100%", padding: 20, background: "#ff444422", color: "#ff4444", fontWeight: 700, border: "1px solid #ff4444", borderRadius: 16 }}>{saving ? "REVIRTIENDO..." : "ANULAR CHECK-IN"}</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QRScanner({ onScan, onClose }) {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    let stream;
+    let anim;
+    async function start() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+        const tick = () => {
+          if (videoRef.current?.readyState === videoRef.current?.HAVE_ENOUGH_DATA) {
+            canvasRef.current.width = videoRef.current.videoWidth;
+            canvasRef.current.height = videoRef.current.videoHeight;
+            const ctx = canvasRef.current.getContext("2d");
+            ctx.drawImage(videoRef.current, 0, 0);
+            const imgData = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+            const code = jsQR(imgData.data, imgData.width, imgData.height);
+            if (code) { onScan(code.data); return; }
+          }
+          anim = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch (err) { alert("Cámara no disponible."); onClose(); }
+    };
+    start();
+    return () => { stream?.getTracks().forEach(t => t.stop()); cancelAnimationFrame(anim); };
+  }, [onScan, onClose]);
+  return (
+    <div style={{ height: "100%", background: "#000", position: "relative" }}>
+      <video ref={videoRef} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+      <button onClick={onClose} style={{ position: "absolute", top: 20, left: 20, background: "#fff", border: "none", padding: 10, borderRadius: "50%", zIndex: 10 }}><IconBack /></button>
+    </div>
+  );
+}
 
 // --- MAIN APP ---
 
 export default function App() {
+  const [isStaff, setIsStaff] = useState(() => localStorage.getItem("STAFF_MODE") === "true");
   const [screen, setScreen] = useState("list");
   const [attendees, setAttendees] = useState(FALLBACK_ATTENDEES);
   const [selectedId, setSelectedId] = useState(null);
-  const [notFoundMsg, setNotFoundMsg] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [ticketLoading, setTicketLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [ticketLoading, setTicketLoading] = useState(false); [cite: 138]
+  const [loading, setLoading] = useState(false);
 
   const selectedAttendee = useMemo(() => attendees.find(a => a.ticket_id === selectedId), [attendees, selectedId]);
 
-  const upsertAttendee = useCallback((ticket) => {
+  const upsert = useCallback((t) => {
+    const clean = normalizeTicket(t);
     setAttendees(prev => {
-      const clean = normalizeTicket(ticket);
       const exists = prev.some(a => a.ticket_id === clean.ticket_id);
       if (!exists) return [...prev, clean].sort((a, b) => a.ticket_id.localeCompare(b.ticket_id));
       return prev.map(a => a.ticket_id === clean.ticket_id ? { ...a, ...clean } : a);
     });
   }, []);
 
-  const handleSelect = useCallback(async (ticketId) => {
-    const cleanId = normalizeTicketId(ticketId);
-    setNotFoundMsg("");
+  const handleSelect = useCallback(async (id) => {
+    const cleanId = normalizeTicketId(id);
+    if (!cleanId) return;
     setSelectedId(cleanId);
-    setTicketLoading(true); [cite: 138]
-    setScreen("detail");
+    setTicketLoading(true);
+    setScreen(isStaff ? "detail" : "guest");
     try {
       const ticket = await apiGetTicket(cleanId);
-      upsertAttendee(ticket);
-    } catch {
-      setNotFoundMsg(`${cleanId} - no encontrado`);
-      window.setTimeout(() => setNotFoundMsg(""), 3000);
-    } finally { setTicketLoading(false); } [cite: 138]
-  }, [upsertAttendee]);
-
-  async function handleCheckIn(ticketId) {
-    setSaving(true);
-    try {
-      const updated = await apiCheckInTicket(ticketId);
-      upsertAttendee(updated);
-    } catch (err) { setNotFoundMsg(err.message); }
-    finally { setSaving(false); }
-  }
-
-  async function handleUndoCheckIn(ticketId) {
-    if (!window.confirm("¿Anular el check-in?")) return;
-    setSaving(true);
-    try {
-      const updated = await apiUndoCheckInTicket(ticketId);
-      upsertAttendee(updated);
-    } catch (err) { setNotFoundMsg(err.message); }
-    finally { setSaving(false); }
-  }
-
-  async function handleRegisterSubmit(formData) {
-    setSaving(true);
-    try {
-      const updated = await apiRegisterTicket(formData);
-      upsertAttendee(updated);
-      setScreen("detail");
-    } catch (err) { setNotFoundMsg(err.message); }
-    finally { setSaving(false); }
-  }
+      upsert(ticket);
+    } catch { /* Fail silently */ }
+    finally { setTicketLoading(false); }
+  }, [isStaff, upsert]);
 
   useEffect(() => {
-    (async () => {
+    const id = normalizeTicketId(window.location.href);
+    if (id) {
+        handleSelect(id);
+    } else if (isStaff) {
       setLoading(true);
-      try {
-        const rows = await apiListTickets();
-        setAttendees(rows);
-      } catch { /* Use fallback */ }
-      finally { setLoading(false); }
-    })();
+      apiListTickets().then(list => { 
+        setAttendees(list); 
+        setLoading(false); 
+      }).catch(() => setLoading(false));
+    }
   }, []);
 
+  async function handleCheckIn(id) {
+    setSaving(true);
+    try { upsert(await apiCheckInTicket(id)); } catch(e) { alert(e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function handleUndo(id) {
+    if (!confirm("¿Anular check-in?")) return;
+    setSaving(true);
+    try { upsert(await apiUndoCheckInTicket(id)); } catch(e) { alert(e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function handleRegisterSubmit(form) {
+    setSaving(true);
+    try {
+      const t = await apiRegisterTicket(form);
+      upsert(t);
+      setScreen(isStaff ? "detail" : "guest");
+    } catch(e) { alert(e.message); }
+    finally { setSaving(false); }
+  }
+
+  const logout = () => { 
+    localStorage.removeItem("STAFF_MODE"); 
+    window.location.href = "/"; 
+  };
+  
+  const login = () => { 
+    localStorage.setItem("STAFF_MODE", "true"); 
+    window.location.href = "/"; 
+  };
+
+  if (screen === "staffLogin") return <StaffLogin onLogin={login} onCancel={() => setScreen(selectedId ? (isStaff ? "detail" : "guest") : "list")} />;
+
   return (
-    <div style={{ maxWidth: 480, margin: "0 auto", background: "#0a0a0a", height: "100vh", color: "#fff", position: "relative" }}>
-      {screen === "list" && <AttendeeList attendees={attendees} loading={loading} onSelect={handleSelect} onScanNav={() => setScreen("scan")} />}
-      {screen === "scan" && <QRScanner onScan={handleSelect} onClose={() => setScreen("list")} />}
-      {screen === "detail" && ticketLoading && <div style={{ padding: 40, textAlign: "center" }}>Cargando ticket...</div>} 
-      {screen === "detail" && !ticketLoading && selectedAttendee && (
-        <AttendeeDetail attendee={selectedAttendee} saving={saving} onBack={() => setScreen("list")} onCheckIn={handleCheckIn} onUndoCheckIn={handleUndoCheckIn} onRegister={() => setScreen("register")} />
-      )} 
-      {screen === "register" && <RegistrationForm ticketId={selectedId} initial={selectedAttendee} saving={saving} onSubmit={handleRegisterSubmit} onCancel={() => setScreen("detail")} />}
-      {notFoundMsg && <div style={{ position: "absolute", bottom: 100, left: 20, right: 20, background: "#ff4444", padding: 12, borderRadius: 12, textAlign: "center" }}>{notFoundMsg}</div>}
+    <div style={{ maxWidth: 500, margin: "0 auto", background: "#0a0a0a", height: "100vh", color: "#fff", overflow: "hidden", fontFamily: "sans-serif", position: "relative" }}>
+      {ticketLoading && <div style={{ padding: 50, textAlign: "center", color: "#666" }}>Cargando ticket...</div>}
+
+      {!ticketLoading && (
+        <>
+          {screen === "list" && isStaff && <AttendeeList attendees={attendees} loading={loading} onSelect={handleSelect} onScanNav={() => setScreen("scan")} onLogout={logout} />}
+          
+          {screen === "list" && !isStaff && (
+            <div style={{ padding: 40, textAlign: "center", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <h1 style={{ fontWeight: 900, fontSize: 40, marginBottom: 10 }}>DHS 2026</h1>
+              <p style={{ color: "#666", lineHeight: 1.5 }}>Escanea tu ticket físico para ver tus detalles o completar tu registro.</p>
+              <button onClick={() => setScreen("staffLogin")} style={{ marginTop: 60, color: "#222", border: "none", background: "none", fontSize: 12 }}>Staff Access</button>
+            </div>
+          )}
+
+          {screen === "guest" && selectedAttendee && <GuestView attendee={selectedAttendee} onRegister={() => setScreen("register")} onStaffMode={() => setScreen("staffLogin")} />}
+          
+          {screen === "detail" && isStaff && selectedAttendee && (
+            <AttendeeDetail attendee={selectedAttendee} saving={saving} onBack={() => setScreen("list")} onCheckIn={handleCheckIn} onUndo={handleUndo} onRegister={() => setScreen("register")} />
+          )}
+
+          {screen === "register" && (
+            <RegistrationForm ticketId={selectedId} initial={selectedAttendee} saving={saving} onSubmit={handleRegisterSubmit} onCancel={() => setScreen(isStaff ? "detail" : "guest")} />
+          )}
+
+          {screen === "scan" && isStaff && <QRScanner onScan={handleSelect} onClose={() => setScreen("list")} />}
+        </>
+      )}
     </div>
   );
-} [cite: 110, 111, 112, 113, 116, 117, 118, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 133, 134, 135, 136, 137]
+}
