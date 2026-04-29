@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import jsQR from "jsqr";
 
 const API_URL = "https://script.google.com/macros/s/AKfycbw9mRofEQdVmM-RS9c6awsFWSz2HLxywNjBCoyU9MWC_AAIxfQYyf57tRKjN6FYo4-Isw/exec";
-const STAFF_PASSWORD = "delino2026";
-const LOGO_URL = "/delino-logo.jpeg";
+const STAFF_PASSWORD = "Delino2026";
+const LOGO_URL = "/delino-logo.jpeg.png";
 const SUBHEADING = "Hair Show 2026";
 
 const FALLBACK_ATTENDEES = Array.from({ length: 100 }, (_, i) => ({
