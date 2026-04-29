@@ -307,7 +307,18 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
 
   function update(key, value) { setForm((prev) => ({ ...prev, [key]: value })); }
   const canSubmit = form.first_name && form.last_name && form.phone && form.email && !saving;
-
+function clearForm() {
+  setForm({
+    ticket_id: ticketId,
+    first_name: "",
+    last_name: "",
+    job_role: "",
+    cosmetology_license: "",
+    phone: "",
+    email: "",
+    vendor_rep: "",
+  });
+}
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, background: "#0a0a0a", minHeight: 0 }}>
       <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
