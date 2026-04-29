@@ -272,6 +272,14 @@ function RegistrationDirections() {
   );
 }
 
+function LoadingPanel({ label = "Cargando..." }) {
+  return (
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 20px", background: "#0a0a0a" }}>
+      <div style={{ fontFamily: "'Space Mono', monospace", color: "#888", fontSize: 14, letterSpacing: 1 }}>{label}</div>
+    </div>
+  );
+}
+
 function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publicMode = false }) {
   const [form, setForm] = useState({
     ticket_id: ticketId,
@@ -298,6 +306,20 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
   }, [ticketId, initial]);
 
   function update(key, value) { setForm((prev) => ({ ...prev, [key]: value })); }
+
+  function clearForm() {
+    setForm({
+      ticket_id: ticketId,
+      first_name: "",
+      last_name: "",
+      job_role: "",
+      cosmetology_license: "",
+      phone: "",
+      email: "",
+      vendor_rep: "",
+    });
+  }
+
   const canSubmit = publicMode
     ? form.first_name && form.last_name && form.phone && form.email && !saving
     : !saving;
@@ -322,6 +344,28 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
         <FormInput label="Vendedor / Representante" value={form.vendor_rep} onChange={(v) => update("vendor_rep", v)} />
       </div>
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "12px 20px 22px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
+        {!publicMode && (
+          <button
+            type="button"
+            onClick={clearForm}
+            style={{
+              width: "100%",
+              background: "#1a1a1a",
+              color: "#ff4444",
+              border: "1px solid #333",
+              borderRadius: 12,
+              padding: 12,
+              fontFamily: "'Space Mono', monospace",
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: "pointer",
+              marginBottom: 8,
+              letterSpacing: 0.5
+            }}
+          >
+            LIMPIAR FORMULARIO
+          </button>
+        )}
         <button type="button" disabled={!canSubmit} onClick={() => onSubmit(form)} style={{ width: "100%", background: !canSubmit ? "#1a1a1a" : "#fbbf24", color: !canSubmit ? "#444" : "#000", border: "none", borderRadius: 14, padding: 15, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 16, cursor: canSubmit ? "pointer" : "not-allowed", transition: "background 0.2s", letterSpacing: 0.5 }}>{saving ? "GUARDANDO..." : "GUARDAR REGISTRO"}</button>
       </div>
     </div>
@@ -437,11 +481,27 @@ export default function App() {
   }, []);
   const isPublicTicketMode = Boolean(urlTicketId);
   const [staffUnlocked, setStaffUnlocked] = useState(() => isPublicTicketMode ? false : sessionStorage.getItem("dhs_staff_unlocked") === "true");
-  const [screen, setScreen] = useState(isPublicTicketMode ? "register" : "list");
-  const [attendees, setAttendees] = useState(FALLBACK_ATTENDEES);
+  const [screen, setScreen] = useState(isPublicTicketMode ? "loading" : "list");
+  const [attendees, setAttendees] = useState(() => {
+    if (isPublicTicketMode) return [];
+    try {
+      const cached = sessionStorage.getItem("dhs_ticket_cache");
+      return cached ? JSON.parse(cached).map(normalizeTicket) : FALLBACK_ATTENDEES;
+    } catch {
+      return FALLBACK_ATTENDEES;
+    }
+  });
   const [selectedId, setSelectedId] = useState(isPublicTicketMode ? urlTicketId : null);
   const [notFoundMsg, setNotFoundMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [listHydrated, setListHydrated] = useState(() => {
+    if (isPublicTicketMode) return true;
+    try {
+      return Boolean(sessionStorage.getItem("dhs_ticket_cache"));
+    } catch {
+      return false;
+    }
+  });
   const [saving, setSaving] = useState(false);
   const [publicRegistered, setPublicRegistered] = useState(false);
   const selectedAttendee = useMemo(() => attendees.find((a) => a.ticket_id === selectedId), [attendees, selectedId]);
@@ -462,13 +522,25 @@ export default function App() {
     const cleanId = normalizeTicketId(ticketId);
     setNotFoundMsg("");
     setSelectedId(cleanId);
-    setScreen(isPublicTicketMode ? "register" : "detail");
+    setScreen(isPublicTicketMode ? "loading" : "detail");
     try {
       const ticket = await apiGetTicket(cleanId);
       upsertAttendee(ticket);
-      if (isPublicTicketMode && isRegistered(ticket)) setPublicRegistered(true);
+
+      if (isPublicTicketMode) {
+        if (isRegistered(ticket)) {
+          setPublicRegistered(true);
+          setScreen("view");
+        } else {
+          setPublicRegistered(false);
+          setScreen("register");
+        }
+      }
     } catch {
-      if (isPublicTicketMode) setPublicRegistered(false);
+      if (isPublicTicketMode) {
+        setPublicRegistered(false);
+        setScreen("register");
+      }
       showError(`${cleanId} - no encontrado en la hoja`);
     }
   }, [isPublicTicketMode, upsertAttendee]);
@@ -476,11 +548,21 @@ export default function App() {
   async function refreshList() {
     if (isPublicTicketMode || !staffUnlocked) return;
     setLoading(true);
-    try { const rows = await apiListTickets(); setAttendees(rows.map(normalizeTicket)); } catch { } finally { setLoading(false); }
+    try {
+      const rows = await apiListTickets();
+      const normalized = rows.map(normalizeTicket);
+      setAttendees(normalized);
+      sessionStorage.setItem("dhs_ticket_cache", JSON.stringify(normalized));
+    } catch {
+      setAttendees((prev) => (prev.length ? prev : FALLBACK_ATTENDEES));
+    } finally {
+      setLoading(false);
+      setListHydrated(true);
+    }
   }
 
   useEffect(() => {
-    if (isPublicTicketMode) { setSelectedId(urlTicketId); setScreen("register"); handleSelect(urlTicketId); return; }
+    if (isPublicTicketMode) { setSelectedId(urlTicketId); setScreen("loading"); handleSelect(urlTicketId); return; }
     if (staffUnlocked) refreshList();
   }, [handleSelect, isPublicTicketMode, staffUnlocked, urlTicketId]);
 
@@ -494,14 +576,14 @@ export default function App() {
     try {
       const updated = await apiRegisterTicket({ ...formData, ticket_id: isPublicTicketMode ? urlTicketId : cleanId });
       upsertAttendee(updated);
-      if (isPublicTicketMode) setPublicRegistered(true); else { setScreen("detail"); refreshList(); }
+      if (isPublicTicketMode) { setPublicRegistered(true); setScreen("view"); } else { setScreen("detail"); refreshList(); }
     } catch (err) { showError(err.message || "Error al registrar"); } finally { setSaving(false); }
   }
 
   const showStaffApp = !isPublicTicketMode && staffUnlocked;
   const showPasswordScreen = !isPublicTicketMode && !staffUnlocked;
-  const showPublicSuccess = isPublicTicketMode && (publicRegistered || publicTicketAlreadyRegistered);
-  const showPublicForm = isPublicTicketMode && !publicRegistered && !publicTicketAlreadyRegistered;
+  const showPublicSuccess = isPublicTicketMode && screen === "view" && (publicRegistered || publicTicketAlreadyRegistered);
+  const showPublicForm = isPublicTicketMode && screen === "register" && !publicRegistered;
 
   return (
     <>
@@ -509,10 +591,12 @@ export default function App() {
       <div style={{ background: "#0a0a0a", minHeight: "100dvh", height: "100dvh", width: "100vw", maxWidth: 480, margin: "0 auto", position: "relative", display: "flex", flexDirection: "column", color: "#fff", overflow: "hidden" }}>
         <GlobalHeader />
         {showPasswordScreen && <StaffPasswordScreen onUnlock={() => setStaffUnlocked(true)} />}
-        {showStaffApp && screen === "list" && <AttendeeList attendees={attendees} loading={loading} onSelect={handleSelect} onScanNav={() => setScreen("scan")} />}
+        {isPublicTicketMode && screen === "loading" && <LoadingPanel label="Buscando registro..." />}
+        {showStaffApp && screen === "list" && !listHydrated && <LoadingPanel label="Cargando tickets..." />}
+        {showStaffApp && screen === "list" && listHydrated && <AttendeeList attendees={attendees} loading={loading} onSelect={handleSelect} onScanNav={() => setScreen("scan")} />}
         {showStaffApp && screen === "scan" && <QRScanner onScan={(id) => handleSelect(id)} onClose={() => { setScreen("list"); refreshList(); }} />}
         {showStaffApp && screen === "detail" && selectedAttendee && <AttendeeDetail attendee={selectedAttendee} saving={saving} onBack={() => { setScreen("list"); refreshList(); }} onCheckIn={handleCheckIn} onUndoCheckIn={handleUndoCheckIn} onRegister={handleRegisterStart} />}
-        {showPublicSuccess && <PublicRegistrationSuccess ticketId={selectedId} attendee={selectedAttendee} onEdit={() => setPublicRegistered(false)} />}
+        {showPublicSuccess && <PublicRegistrationSuccess ticketId={selectedId} attendee={selectedAttendee} onEdit={() => { setPublicRegistered(false); setScreen("register"); }} />}
         {(showStaffApp || showPublicForm) && screen === "register" && <RegistrationForm ticketId={selectedId} initial={selectedAttendee} saving={saving} publicMode={isPublicTicketMode} onSubmit={handleRegisterSubmit} onCancel={() => { if (!isPublicTicketMode) setScreen("detail"); }} />}
         {notFoundMsg && <div style={{ position: "absolute", bottom: 100, left: 20, right: 20, background: notFoundMsg === "Registro guardado" ? "#00ff88" : "#ff4444", color: notFoundMsg === "Registro guardado" ? "#000" : "#fff", padding: "12px 20px", borderRadius: 12, textAlign: "center", fontFamily: "'Space Mono', monospace", fontSize: 13, zIndex: 1000, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>{notFoundMsg}</div>}
       </div>
