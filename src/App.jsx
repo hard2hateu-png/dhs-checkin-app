@@ -509,10 +509,25 @@ export default function App() {
     return normalizeTicketId(params.get("ticket") || params.get("ticket_id") || params.get("id") || "");
   }, []);
   const isPublicTicketMode = Boolean(urlTicketId);
+
+  const cachedPublicTicket = useMemo(() => {
+    if (!isPublicTicketMode || !urlTicketId) return null;
+    try {
+      const raw = sessionStorage.getItem(`dhs_ticket_${urlTicketId}`);
+      return raw ? normalizeTicket(JSON.parse(raw)) : null;
+    } catch {
+      return null;
+    }
+  }, [isPublicTicketMode, urlTicketId]);
+
   const [staffUnlocked, setStaffUnlocked] = useState(() => isPublicTicketMode ? false : sessionStorage.getItem("dhs_staff_unlocked") === "true");
-  const [screen, setScreen] = useState(isPublicTicketMode ? "loading" : "list");
+  const [screen, setScreen] = useState(() => {
+    if (!isPublicTicketMode) return "list";
+    if (!cachedPublicTicket) return "loading";
+    return isRegistered(cachedPublicTicket) ? "view" : "register";
+  });
   const [attendees, setAttendees] = useState(() => {
-    if (isPublicTicketMode) return [];
+    if (isPublicTicketMode) return cachedPublicTicket ? [cachedPublicTicket] : [];
     try {
       const cached = sessionStorage.getItem("dhs_ticket_cache");
       return cached ? JSON.parse(cached).map(normalizeTicket) : FALLBACK_ATTENDEES;
@@ -532,13 +547,19 @@ export default function App() {
     }
   });
   const [saving, setSaving] = useState(false);
-  const [publicRegistered, setPublicRegistered] = useState(false);
+  const [publicRegistered, setPublicRegistered] = useState(() => Boolean(cachedPublicTicket && isRegistered(cachedPublicTicket)));
   const selectedAttendee = useMemo(() => attendees.find((a) => a.ticket_id === selectedId), [attendees, selectedId]);
   const publicTicketAlreadyRegistered = Boolean(isPublicTicketMode && selectedAttendee && isRegistered(selectedAttendee));
 
   const upsertAttendee = useCallback((ticket) => {
+    const clean = normalizeTicket(ticket);
+    try {
+      sessionStorage.setItem(`dhs_ticket_${clean.ticket_id}`, JSON.stringify(clean));
+    } catch {
+      // Ignore cache write failures.
+    }
+
     setAttendees((prev) => {
-      const clean = normalizeTicket(ticket);
       const exists = prev.some((a) => a.ticket_id === clean.ticket_id);
       if (!exists) return [...prev, clean].sort((a, b) => a.ticket_id.localeCompare(b.ticket_id));
       return prev.map((a) => (a.ticket_id === clean.ticket_id ? { ...a, ...clean } : a));
@@ -551,7 +572,26 @@ export default function App() {
     const cleanId = normalizeTicketId(ticketId);
     setNotFoundMsg("");
     setSelectedId(cleanId);
-    setScreen(isPublicTicketMode ? "loading" : "detail");
+
+    if (isPublicTicketMode) {
+      try {
+        const raw = sessionStorage.getItem(`dhs_ticket_${cleanId}`);
+        const cached = raw ? normalizeTicket(JSON.parse(raw)) : null;
+        if (cached) {
+          upsertAttendee(cached);
+          const cachedRegistered = isRegistered(cached);
+          setPublicRegistered(cachedRegistered);
+          setScreen(cachedRegistered ? "view" : "register");
+        } else {
+          setScreen("loading");
+        }
+      } catch {
+        setScreen("loading");
+      }
+    } else {
+      setScreen("detail");
+    }
+
     try {
       const ticket = await apiGetTicket(cleanId);
       upsertAttendee(ticket);
@@ -582,6 +622,13 @@ export default function App() {
       const normalized = rows.map(normalizeTicket);
       setAttendees(normalized);
       sessionStorage.setItem("dhs_ticket_cache", JSON.stringify(normalized));
+      normalized.forEach((ticket) => {
+        try {
+          sessionStorage.setItem(`dhs_ticket_${ticket.ticket_id}`, JSON.stringify(ticket));
+        } catch {
+          // Ignore cache write failures.
+        }
+      });
     } catch {
       setAttendees((prev) => (prev.length ? prev : FALLBACK_ATTENDEES));
     } finally {
@@ -591,7 +638,11 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (isPublicTicketMode) { setSelectedId(urlTicketId); setScreen("loading"); handleSelect(urlTicketId); return; }
+    if (isPublicTicketMode) {
+      setSelectedId(urlTicketId);
+      handleSelect(urlTicketId);
+      return;
+    }
     if (staffUnlocked) refreshList();
   }, [handleSelect, isPublicTicketMode, staffUnlocked, urlTicketId]);
 
