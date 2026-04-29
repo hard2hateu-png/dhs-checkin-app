@@ -425,50 +425,50 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
   const canSubmit = form.first_name && form.last_name && form.phone && form.email && !saving;
 
   return (
-     <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14 }}>
-        {!publicMode && (
-          <button type="button" onClick={onCancel} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
-            <IconBack />
-          </button>
-        )}
-        <div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: "#fff" }}>REGISTRO</div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#fbbf24", marginTop: 2 }}>{ticketId}</div>
-        </div>
-      </div>
-
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 140px" }}>
-        <RegistrationDirections />
-        <FormInput label="Nombre" value={form.first_name} onChange={(value) => update("first_name", value)} required />
-        <FormInput label="Apellido" value={form.last_name} onChange={(value) => update("last_name", value)} required />
-
-        <label style={labelStyle}>Puesto de trabajo *</label>
-        <select value={form.job_role} onChange={(event) => update("job_role", event.target.value)} style={inputStyle}>
-          <option value="">Seleccione...</option>
-          <option value="ESTILISTA">ESTILISTA</option>
-          <option value="PROPIETARIO DE SALON DE BELLEZA">PROPIETARIO DE SALON DE BELLEZA</option>
-          <option value="ESTUDIANTE">ESTUDIANTE</option>
-        </select>
-
-        <FormInput label="Licencia de cosmetologia" value={form.cosmetology_license} onChange={(value) => update("cosmetology_license", value)} />
-        <FormInput label="Telefono" value={form.phone} onChange={(value) => update("phone", value)} required type="tel" />
-        <FormInput label="Correo electronico" value={form.email} onChange={(value) => update("email", value)} required type="email" />
-        <FormInput label="Vendedor / Representante" value={form.vendor_rep} onChange={(value) => update("vendor_rep", value)} />
-      </div>
-
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={() => onSubmit(form)}
-          style={{ width: "100%", background: !canSubmit ? "#1a1a1a" : "#fbbf24", color: !canSubmit ? "#444" : "#000", border: "none", borderRadius: 16, padding: 20, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 18, cursor: canSubmit ? "pointer" : "not-allowed", transition: "background 0.2s", letterSpacing: 0.5 }}
-        >
-          {saving ? "GUARDANDO..." : "GUARDAR REGISTRO"}
+  <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0a0a0a" }}>
+    <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14 }}>
+      {!publicMode && (
+        <button type="button" onClick={onCancel} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
+          <IconBack />
         </button>
+      )}
+      <div>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: "#fff" }}>REGISTRO</div>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#fbbf24", marginTop: 2 }}>{ticketId}</div>
       </div>
     </div>
-  );
-}
+
+    <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 140px" }}>
+      <RegistrationDirections />
+      <FormInput label="Nombre" value={form.first_name} onChange={(value) => update("first_name", value)} required />
+      <FormInput label="Apellido" value={form.last_name} onChange={(value) => update("last_name", value)} required />
+
+      <label style={labelStyle}>Puesto de trabajo *</label>
+      <select value={form.job_role} onChange={(event) => update("job_role", event.target.value)} style={inputStyle}>
+        <option value="">Seleccione...</option>
+        <option value="ESTILISTA">ESTILISTA</option>
+        <option value="PROPIETARIO DE SALON DE BELLEZA">PROPIETARIO DE SALON DE BELLEZA</option>
+        <option value="ESTUDIANTE">ESTUDIANTE</option>
+      </select>
+
+      <FormInput label="Licencia de cosmetologia" value={form.cosmetology_license} onChange={(value) => update("cosmetology_license", value)} />
+      <FormInput label="Telefono" value={form.phone} onChange={(value) => update("phone", value)} required type="tel" />
+      <FormInput label="Correo electronico" value={form.email} onChange={(value) => update("email", value)} required type="email" />
+      <FormInput label="Vendedor / Representante" value={form.vendor_rep} onChange={(value) => update("vendor_rep", value)} />
+    </div>
+
+    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
+      <button
+        type="button"
+        disabled={!canSubmit}
+        onClick={() => onSubmit(form)}
+        style={{ width: "100%", background: !canSubmit ? "#1a1a1a" : "#fbbf24", color: !canSubmit ? "#444" : "#000", border: "none", borderRadius: 16, padding: 20, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 18, cursor: canSubmit ? "pointer" : "not-allowed", transition: "background 0.2s", letterSpacing: 0.5 }}
+      >
+        {saving ? "GUARDANDO..." : "GUARDAR REGISTRO"}
+      </button>
+    </div>
+  </div>
+);
 
 function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
   const [query, setQuery] = useState("");
