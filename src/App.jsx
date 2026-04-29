@@ -94,6 +94,34 @@ async function apiRegisterTicket(formData) {
   return normalizeTicket(data.ticket);
 }
 
+async function apiUnregisterTicket(ticketId) {
+  const cleanId = normalizeTicketId(ticketId);
+  const data = await fetchJson(API_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      action: "unregister",
+      ticket_id: cleanId,
+    }),
+  });
+  if (!data.success) throw new Error(data.error || "Unregister failed");
+  return normalizeTicket(
+    data.ticket || {
+      ticket_id: cleanId,
+      first_name: "",
+      last_name: "",
+      job_role: "",
+      cosmetology_license: "",
+      phone: "",
+      email: "",
+      vendor_rep: "",
+      registered: "NO",
+      qr_scanned: 0,
+      checked_in: false,
+      check_in_time: "",
+    }
+  );
+}
+
 async function apiCheckInTicket(ticketId) {
   const data = await fetchJson(API_URL, {
     method: "POST",
@@ -323,14 +351,16 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
   const canSubmit = publicMode
     ? form.first_name && form.last_name && form.phone && form.email && !saving
     : !saving;
-const isEmptyForm =
-  !form.first_name &&
-  !form.last_name &&
-  !form.job_role &&
-  !form.cosmetology_license &&
-  !form.phone &&
-  !form.email &&
-  !form.vendor_rep;
+
+  const isEmptyForm =
+    !form.first_name &&
+    !form.last_name &&
+    !form.job_role &&
+    !form.cosmetology_license &&
+    !form.phone &&
+    !form.email &&
+    !form.vendor_rep;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, background: "#0a0a0a", minHeight: 0 }}>
       <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
@@ -374,34 +404,27 @@ const isEmptyForm =
           </button>
         )}
         <button
-  type="button"
-  disabled={!canSubmit}
-  onClick={() => onSubmit(form)}
-  style={{
-    width: "100%",
-    background: !canSubmit
-      ? "#1a1a1a"
-      : isEmptyForm && !publicMode
-      ? "#ff4444"
-      : "#fbbf24",
-    color: !canSubmit ? "#444" : isEmptyForm && !publicMode ? "#fff" : "#000",
-    border: "none",
-    borderRadius: 14,
-    padding: 15,
-    fontFamily: "'Space Mono', monospace",
-    fontWeight: 700,
-    fontSize: 16,
-    cursor: canSubmit ? "pointer" : "not-allowed",
-    letterSpacing: 0.5
-  }}
->
-  {saving
-    ? "GUARDANDO..."
-    : isEmptyForm && !publicMode
-    ? "ELIMINAR REGISTRO"
-    : "GUARDAR REGISTRO"}
-</button>
-          </div>
+          type="button"
+          disabled={!canSubmit}
+          onClick={() => onSubmit(form)}
+          style={{
+            width: "100%",
+            background: !canSubmit ? "#1a1a1a" : isEmptyForm && !publicMode ? "#ff4444" : "#fbbf24",
+            color: !canSubmit ? "#444" : isEmptyForm && !publicMode ? "#fff" : "#000",
+            border: "none",
+            borderRadius: 14,
+            padding: 15,
+            fontFamily: "'Space Mono', monospace",
+            fontWeight: 700,
+            fontSize: 16,
+            cursor: canSubmit ? "pointer" : "not-allowed",
+            transition: "background 0.2s",
+            letterSpacing: 0.5
+          }}
+        >
+          {saving ? "GUARDANDO..." : isEmptyForm && !publicMode ? "ELIMINAR REGISTRO" : "GUARDAR REGISTRO"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -603,15 +626,44 @@ export default function App() {
   async function handleCheckIn(ticketId) { if (isPublicTicketMode || !staffUnlocked) return; setSaving(true); try { const updated = await apiCheckInTicket(ticketId); upsertAttendee(updated); } catch (err) { showError(err.message || "No se pudo hacer check-in"); } finally { setSaving(false); } }
   async function handleUndoCheckIn(ticketId) { if (isPublicTicketMode || !staffUnlocked) return; if (!window.confirm("¿Anular el check-in de este ticket?")) return; setSaving(true); try { const updated = await apiUndoCheckInTicket(ticketId); upsertAttendee(updated); } catch (err) { showError(err.message || "No se pudo anular el check-in"); } finally { setSaving(false); } }
   function handleRegisterStart(ticketId) { const cleanId = normalizeTicketId(ticketId); if (isPublicTicketMode && cleanId !== urlTicketId) return; setSelectedId(cleanId); setPublicRegistered(false); setScreen("register"); }
+  function isEmptyRegistrationPayload(formData) {
+    return !formData.first_name &&
+      !formData.last_name &&
+      !formData.job_role &&
+      !formData.cosmetology_license &&
+      !formData.phone &&
+      !formData.email &&
+      !formData.vendor_rep;
+  }
+
+
   async function handleRegisterSubmit(formData) {
     const cleanId = normalizeTicketId(formData.ticket_id);
     if (isPublicTicketMode && cleanId !== urlTicketId) { showError("Solo puedes editar este ticket"); return; }
+
+    const shouldUnregister = !isPublicTicketMode && isEmptyRegistrationPayload(formData);
+    if (shouldUnregister && !window.confirm("¿Eliminar/limpiar el registro de este ticket?")) return;
+
     setSaving(true);
     try {
-      const updated = await apiRegisterTicket({ ...formData, ticket_id: isPublicTicketMode ? urlTicketId : cleanId });
+      const updated = shouldUnregister
+        ? await apiUnregisterTicket(cleanId)
+        : await apiRegisterTicket({ ...formData, ticket_id: isPublicTicketMode ? urlTicketId : cleanId });
+
       upsertAttendee(updated);
-      if (isPublicTicketMode) { setPublicRegistered(true); setScreen("view"); } else { setScreen("detail"); refreshList(); }
-    } catch (err) { showError(err.message || "Error al registrar"); } finally { setSaving(false); }
+
+      if (isPublicTicketMode) {
+        setPublicRegistered(true);
+        setScreen("view");
+      } else {
+        setScreen("detail");
+        refreshList();
+      }
+    } catch (err) {
+      showError(err.message || (shouldUnregister ? "Error al eliminar registro" : "Error al registrar"));
+    } finally {
+      setSaving(false);
+    }
   }
 
   const showStaffApp = !isPublicTicketMode && staffUnlocked;
