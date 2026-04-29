@@ -339,6 +339,28 @@ function clearForm() {
         <FormInput label="Vendedor / Representante" value={form.vendor_rep} onChange={(v) => update("vendor_rep", v)} />
       </div>
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
+        {!publicMode && (
+  <button
+    type="button"
+    onClick={clearForm}
+    style={{
+      width: "100%",
+      background: "#1a1a1a",
+      color: "#ff4444",
+      border: "1px solid #333",
+      borderRadius: 16,
+      padding: 16,
+      fontFamily: "'Space Mono', monospace",
+      fontWeight: 700,
+      fontSize: 14,
+      cursor: "pointer",
+      marginBottom: 10,
+      letterSpacing: 0.5
+    }}
+  >
+    LIMPIAR FORMULARIO
+  </button>
+)}
         <button type="button" disabled={!canSubmit} onClick={() => onSubmit(form)} style={{ width: "100%", background: !canSubmit ? "#1a1a1a" : "#fbbf24", color: !canSubmit ? "#444" : "#000", border: "none", borderRadius: 16, padding: 20, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 18, cursor: canSubmit ? "pointer" : "not-allowed", transition: "background 0.2s", letterSpacing: 0.5 }}>{saving ? "GUARDANDO..." : "GUARDAR REGISTRO"}</button>
       </div>
     </div>
