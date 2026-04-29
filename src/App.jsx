@@ -427,8 +427,50 @@ function RegistrationDirections() {
     </div>
   );
 }
+function PublicTicketInfoCard({ attendee }) {
+  const name = [attendee?.first_name, attendee?.last_name].filter(Boolean).join(" ") || "Sin nombre";
+  const badge = roleBadge(attendee?.job_role);
 
-function PublicRegistrationSuccess({ ticketId, onEdit }) {
+  function Field({ label, value }) {
+    if (!value) return null;
+    return (
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>
+          {label}
+        </div>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: "#ddd" }}>
+          {value}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div style={{ background: "#111", borderRadius: 16, padding: "20px", marginBottom: 16, border: "1px solid #1e1e1e" }}>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 24, fontWeight: 700, color: "#fff", lineHeight: 1.2 }}>
+          {name}
+        </div>
+
+        {attendee?.job_role && (
+          <span style={{ display: "inline-block", marginTop: 10, background: badge.bg, color: badge.text, fontFamily: "'Space Mono', monospace", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6 }}>
+            {badge.label}
+          </span>
+        )}
+      </div>
+
+      <div style={{ background: "#111", borderRadius: 16, padding: "20px", marginBottom: 16, border: "1px solid #1e1e1e" }}>
+        <Field label="Ticket ID" value={attendee?.ticket_id} />
+        <Field label="Licencia de cosmetologia" value={attendee?.cosmetology_license} />
+        <Field label="Telefono" value={attendee?.phone} />
+        <Field label="Email" value={attendee?.email} />
+        <Field label="Vendedor / Representante" value={attendee?.vendor_rep} />
+      </div>
+    </>
+  );
+}
+
+function PublicRegistrationSuccess({ ticketId, attendee, onEdit }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0a0a0a" }}>
       <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a" }}>
@@ -440,22 +482,24 @@ function PublicRegistrationSuccess({ ticketId, onEdit }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, padding: "32px 20px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-        <div style={{ background: "#0a1f0a", border: "1px solid #1a3a1a", borderRadius: 18, padding: 24, textAlign: "center" }}>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 22, fontWeight: 700, color: "#00ff88", marginBottom: 10 }}>
-            Gracias por registrarte
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px 140px" }}>
+        <div style={{ background: "#0a1f0a", border: "1px solid #1a3a1a", borderRadius: 16, padding: "18px 20px", marginBottom: 16 }}>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 17, fontWeight: 700, color: "#00ff88", marginBottom: 6 }}>
+            Gracias por registrarte 
           </div>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: "#ddd", lineHeight: 1.45 }}>
-            Tu información fue guardada correctamente.
-            <br />
-            Presenta este ticket al llegar al evento.
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 15, lineHeight: 1.45, color: "#ddd" }}>
+            Tu información fue guardada correctamente. Presenta el ticket al llegar al evento.
           </div>
         </div>
 
+        {attendee && <PublicTicketInfoCard attendee={attendee} />}
+      </div>
+
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
         <button
           type="button"
           onClick={onEdit}
-          style={{ width: "100%", background: "#222", color: "#fff", border: "1px solid #333", borderRadius: 16, padding: 16, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 18 }}
+          style={{ width: "100%", background: "#222", color: "#fff", border: "1px solid #333", borderRadius: 16, padding: 16, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 15, cursor: "pointer" }}
         >
           EDITAR REGISTRO
         </button>
