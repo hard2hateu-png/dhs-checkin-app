@@ -847,10 +847,10 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publicRegistered, setPublicRegistered] = useState(false);
-
+  
   const selectedAttendee = useMemo(() => attendees.find((a) => a.ticket_id === selectedId), [attendees, selectedId]);
-
-  const upsertAttendee = useCallback((ticket) => {
+  const publicTicketAlreadyRegistered = isPublicTicketMode && selectedAttendee && isRegistered(selectedAttendee);
+   const upsertAttendee = useCallback((ticket) => {
     setAttendees((prev) => {
       const clean = normalizeTicket(ticket);
       const exists = prev.some((a) => a.ticket_id === clean.ticket_id);
@@ -878,7 +878,10 @@ export default function App() {
       try {
         const ticket = await apiGetTicket(cleanId);
         upsertAttendee(ticket);
-      } catch {
+      } 
+       if (isPublicTicketMode && isRegistered(ticket)) {
+  setPublicRegistered(true);
+       catch {
         showError(`${cleanId} - no encontrado en la hoja`);
       }
     },
@@ -1057,14 +1060,15 @@ export default function App() {
           />
         )}
 
-        {isPublicTicketMode && publicRegistered && (
-          <PublicRegistrationSuccess
-            ticketId={selectedId}
-            onEdit={() => setPublicRegistered(false)}
-          />
-        )}
+        {isPublicTicketMode && (publicRegistered || publicTicketAlreadyRegistered) && (
+  <PublicRegistrationSuccess
+    ticketId={selectedId}
+    attendee={selectedAttendee}
+    onEdit={() => setPublicRegistered(false)}
+  />
+)}
 
-        {(showStaffApp || (isPublicTicketMode && !publicRegistered)) && screen === "register" && (
+       {(showStaffApp || (isPublicTicketMode && !publicRegistered && !publicTicketAlreadyRegistered)) && screen === "register" && (
           <RegistrationForm
             ticketId={selectedId}
             initial={selectedAttendee}
