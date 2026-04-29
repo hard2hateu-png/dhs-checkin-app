@@ -27,6 +27,7 @@ function normalizeTicketId(value) {
 
   try {
     const url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+
     const pathMatch = url.pathname.match(/DHS26-\d{3}/i);
     if (pathMatch) return pathMatch[0].toUpperCase();
 
@@ -35,13 +36,16 @@ function normalizeTicketId(value) {
       url.searchParams.get("ticket_id") ||
       url.searchParams.get("id");
 
-    if (fromQuery) return fromQuery.trim().toUpperCase();
-  } catch {
-    // Not a URL.
-  }
+    if (fromQuery) {
+      const match = String(fromQuery).match(/DHS26-\d{3}/i);
+      return match ? match[0].toUpperCase() : "";
+    }
 
-  const match = raw.match(/DHS26-\d{3}/i);
-  return match ? match[0].toUpperCase() : raw.toUpperCase();
+    return "";
+  } catch {
+    const match = raw.match(/DHS26-\d{3}/i);
+    return match ? match[0].toUpperCase() : "";
+  }
 }
 
 function normalizeTicket(ticket) {
