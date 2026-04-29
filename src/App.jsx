@@ -303,7 +303,7 @@ function QRScanner({ onScan, onClose }) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#000" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh", background: "#000" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a" }}>
         <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
           <IconBack />
@@ -313,8 +313,9 @@ function QRScanner({ onScan, onClose }) {
         </span>
       </div>
 
-      <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", maxHeight: 380 }}>
-        <video ref={videoRef} style={{ width: "100%", height: "100%", objectFit: "cover" }} playsInline muted />
+      <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflowY: "auto",
+          overflowX: "hidden", maxHeight: 380 }}>
+        <video ref={videoRef} style={{ width: "100%", minHeight: "100dvh", objectFit: "cover" }} playsInline muted />
         <canvas ref={canvasRef} style={{ display: "none" }} />
 
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
@@ -506,7 +507,7 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving }) {
   const canSubmit = form.first_name && form.last_name && form.phone && form.email && !saving;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0a0a0a" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh", background: "#0a0a0a" }}>
       <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14 }}>
         <button type="button" onClick={onCancel} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
           <IconBack />
@@ -535,7 +536,7 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving }) {
         <FormInput label="Vendedor / Representante" value={form.vendor_rep} onChange={(value) => update("vendor_rep", value)} />
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
+      <div style={{ position: "sticky", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
         <button
           type="button"
           disabled={!canSubmit}
@@ -567,7 +568,7 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading, onLogout }) {
   const totalRegistered = attendees.filter(isRegistered).length;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
       <div style={{ padding: "20px 20px 0", background: "#0d0d0d" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
@@ -582,7 +583,7 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading, onLogout }) {
         </div>
 
         <div style={{ height: 3, background: "#1a1a1a", borderRadius: 2, marginBottom: 14 }}>
-          <div style={{ height: "100%", width: `${attendees.length ? (totalChecked / attendees.length) * 100 : 0}%`, background: "#00ff88", borderRadius: 2, transition: "width 0.4s" }} />
+          <div style={{ minHeight: "100dvh", width: `${attendees.length ? (totalChecked / attendees.length) * 100 : 0}%`, background: "#00ff88", borderRadius: 2, transition: "width 0.4s" }} />
         </div>
 
         <div style={{ position: "relative", marginBottom: 16 }}>
@@ -598,7 +599,7 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading, onLogout }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 100px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 120px", WebkitOverflowScrolling: "touch" }}>
         {filtered.length === 0 && (
           <div style={{ textAlign: "center", padding: "48px 0", color: "#444", fontFamily: "'Space Mono', monospace" }}>Sin resultados para "{query}"</div>
         )}
@@ -612,7 +613,8 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading, onLogout }) {
               type="button"
               key={a.ticket_id || `row-${a.id || Math.random()}`}
               onClick={() => onSelect(a.ticket_id)}
-              style={{ width: "100%", background: "#111", border: `1px solid ${checked ? "#1a3a1a" : registered ? "#252520" : "#2a1a1a"}`, borderRadius: 14, padding: "16px 18px", marginBottom: 10, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", textAlign: "left", position: "relative", overflow: "hidden" }}
+              style={{ width: "100%", background: "#111", border: `1px solid ${checked ? "#1a3a1a" : registered ? "#252520" : "#2a1a1a"}`, borderRadius: 14, padding: "16px 18px", marginBottom: 10, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", textAlign: "left", position: "relative", overflowY: "auto",
+          overflowX: "hidden" }}
             >
               <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: checked ? "#00ff88" : registered ? "#fbbf24" : "#ff4444" }} />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -621,7 +623,8 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading, onLogout }) {
                   {a.job_role && <span style={{ background: badge.bg, color: badge.text, fontFamily: "'Space Mono', monospace", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4 }}>{badge.label}</span>}
                 </div>
                 <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: registered ? "#aaa" : "#ff7777" }}>{registered ? name || a.email || "-" : "No registrado"}</div>
-                {a.email && registered && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#555", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.email}</div>}
+                {a.email && registered && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#555", marginTop: 2, overflowY: "auto",
+          overflowX: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.email}</div>}
               </div>
               <div style={{ width: 32, height: 32, background: checked ? "#00ff88" : "#1a1a1a", borderRadius: "50%", border: checked ? "none" : "1px solid #2a2a2a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#000" }}>{checked && <IconCheck />}</div>
             </button>
@@ -629,7 +632,7 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading, onLogout }) {
         })}
       </div>
 
-      <div style={{ padding: "4px 20px 18px", background: "#0a0a0a" }}>
+      <div style={{ padding: "4px 20px 18px", background: "#0a0a0a", position: "relative", zIndex: 1 }}>
         <button
           type="button"
           onClick={onLogout}
@@ -659,7 +662,7 @@ function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
       <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14 }}>
         <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
           <IconBack />
@@ -718,7 +721,7 @@ function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack
         )}
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
+      <div style={{ position: "sticky", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
         {registered && (
           <button
             type="button"
@@ -940,7 +943,8 @@ export default function App() {
           display: "flex",
           flexDirection: "column",
           color: "#fff",
-          overflow: "hidden"
+          overflowY: "auto",
+          overflowX: "hidden"
         }}
       >
         {ticketLoading && (
@@ -1014,7 +1018,7 @@ export default function App() {
         )}
 
         {notFoundMsg && (
-          <div style={{ position: "absolute", bottom: 100, left: 20, right: 20, background: "#ff4444", color: "#fff", padding: "12px 20px", borderRadius: 12, textAlign: "center", fontFamily: "'Space Mono', monospace", fontSize: 13, zIndex: 1000, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+          <div style={{ position: "fixed", bottom: 100, left: 20, right: 20, background: "#ff4444", color: "#fff", padding: "12px 20px", borderRadius: 12, textAlign: "center", fontFamily: "'Space Mono', monospace", fontSize: 13, zIndex: 1000, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
             {notFoundMsg}
           </div>
         )}
