@@ -256,8 +256,8 @@ function QRScanner({ onScan, onClose }) {
   );
 }
 
-const labelStyle = { display: "block", color: "#777", fontFamily: "'Space Mono', monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, margin: "14px 0 6px" };
-const inputStyle = { width: "100%", background: "#111", border: "1px solid #2a2a2a", borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 16, boxSizing: "border-box", fontFamily: "'DM Sans', sans-serif", outline: "none" };
+const labelStyle = { display: "block", color: "#b8b8b8", fontFamily: "'Space Mono', monospace", fontSize: 10, textTransform: "uppercase", letterSpacing: 1.4, margin: "10px 0 5px" };
+const inputStyle = { width: "100%", background: "#111", border: "1px solid #2a2a2a", borderRadius: 11, padding: "11px 14px", color: "#fff", fontSize: 15, boxSizing: "border-box", fontFamily: "'DM Sans', sans-serif", outline: "none" };
 
 function FormInput({ label, value, onChange, required, type = "text" }) {
   return <><label style={labelStyle}>{label}{required ? " *" : ""}</label><input type={type} value={value} onChange={(e) => onChange(e.target.value)} style={inputStyle} /></>;
@@ -265,9 +265,9 @@ function FormInput({ label, value, onChange, required, type = "text" }) {
 
 function RegistrationDirections() {
   return (
-    <div style={{ background: "#111", border: "1px solid rgba(251, 191, 36, 0.35)", borderRadius: 15, padding: "18px 20px", marginBottom: 22 }}>
+    <div style={{ background: "#111", border: "1px solid rgba(251, 191, 36, 0.35)", borderRadius: 16, padding: "14px 18px", marginBottom: 16 }}>
       <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Instrucciones</div>
-      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, lineHeight: 1.45, color: "#ddd" }}>Por favor completa todos los campos requeridos. Verifica que tu información esté correcta antes de enviar.<br /></div>
+      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, lineHeight: 1.35, color: "#ddd" }}>Por favor completa todos los campos requeridos. Verifica que tu información esté correcta antes de enviar.<br />Solo podrás editar y enviar este registro.</div>
     </div>
   );
 }
@@ -335,11 +335,11 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, background: "#0a0a0a", minHeight: 0 }}>
-      <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+      <div style={{ padding: "13px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
         {!publicMode && <button type="button" onClick={onCancel} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}><IconBack /></button>}
         <div><div style={{ fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: "#fff" }}>REGISTRO</div><div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#fbbf24", marginTop: 2 }}>{ticketId}</div></div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 128px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "14px 20px 105px" }}>
         <RegistrationDirections />
         <FormInput label="Nombre" value={form.first_name} onChange={(v) => update("first_name", v)} required />
         <FormInput label="Apellido" value={form.last_name} onChange={(v) => update("last_name", v)} required />
@@ -352,7 +352,7 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
         <FormInput label="Correo electronico" value={form.email} onChange={(v) => update("email", v)} required type="email" />
         <FormInput label="Vendedor / Representante" value={form.vendor_rep} onChange={(v) => update("vendor_rep", v)} />
       </div>
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "12px 20px 22px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 20px 18px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
         {!publicMode && (
           <button
             type="button"
@@ -363,10 +363,10 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
               color: "#ff4444",
               border: "1px solid #333",
               borderRadius: 12,
-              padding: 12,
+              padding: 10,
               fontFamily: "'Space Mono', monospace",
               fontWeight: 700,
-              fontSize: 13,
+              fontSize: 12,
               cursor: "pointer",
               marginBottom: 8,
               letterSpacing: 0.5
@@ -384,11 +384,11 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
             background: !canSubmit ? "#1a1a1a" : isEmptyForm && !publicMode ? "#ff4444" : "#fbbf24",
             color: !canSubmit ? "#444" : isEmptyForm && !publicMode ? "#fff" : "#000",
             border: "none",
-            borderRadius: 14,
-            padding: 15,
+            borderRadius: 12,
+            padding: 12,
             fontFamily: "'Space Mono', monospace",
             fontWeight: 700,
-            fontSize: 16,
+            fontSize: 14,
             cursor: canSubmit ? "pointer" : "not-allowed",
             transition: "background 0.2s",
             letterSpacing: 0.5
