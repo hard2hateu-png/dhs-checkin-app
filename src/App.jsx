@@ -355,32 +355,6 @@ function FormInput({ label, value, onChange, required, type = "text" }) {
 
 // --- SUB-SCREENS ---
 
-
-function LogoHeader() {
-  return (
-    <div
-      style={{
-        padding: "28px 20px 22px",
-        background: "#0a0a0a",
-        borderBottom: "1px solid #1a1a1a",
-        textAlign: "center",
-      }}
-    >
-      <img
-        src={LOGO_URL}
-        alt="Delino Salon Essentials"
-        style={{
-          width: "58%",
-          maxWidth: 280,
-          height: "auto",
-          display: "block",
-          margin: "0 auto",
-        }}
-      />
-    </div>
-  );
-}
-
 function RegistrationDirections() {
   return (
     <div
@@ -766,7 +740,7 @@ function GlobalHeader() {
         src={LOGO_URL}
         alt="Delino"
         style={{
-          width: 120,
+          width: 150,
           height: "auto",
           display: "block",
           margin: "0 auto 6px",
@@ -776,7 +750,7 @@ function GlobalHeader() {
       <div
         style={{
           fontFamily: "'Space Mono', monospace",
-          fontSize: 11,
+          fontSize: 12,
           letterSpacing: 2,
           color: "#888",
         }}
