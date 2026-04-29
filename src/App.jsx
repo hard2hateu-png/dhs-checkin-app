@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import jsQR from "jsqr";
 
 const API_URL = "https://script.google.com/macros/s/AKfycbw9mRofEQdVmM-RS9c6awsFWSz2HLxywNjBCoyU9MWC_AAIxfQYyf57tRKjN6FYo4-Isw/exec";
-const STAFF_PASSWORD = "delino2026";
-const STORAGE_KEY = "STAFF_MODE";
 
 const FALLBACK_ATTENDEES = Array.from({ length: 100 }, (_, i) => ({
   ticket_id: `DHS26-${String(i + 1).padStart(3, "0")}`,
@@ -25,41 +23,25 @@ const FALLBACK_ATTENDEES = Array.from({ length: 100 }, (_, i) => ({
 function normalizeTicketId(value) {
   if (!value) return "";
   const raw = String(value).trim();
+
   try {
-    const url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
-    const pathMatch = url.pathname.match(/DHS26-\d{3}/i);
-    if (pathMatch) return pathMatch[0].toUpperCase();
-    const fromQuery =
-      url.searchParams.get("ticket") ||
-      url.searchParams.get("ticket_id") ||
-      url.searchParams.get("id");
-    if (fromQuery) {
-      const match = String(fromQuery).match(/DHS26-\d{3}/i);
-      return match ? match[0].toUpperCase() : "";
-    }
-    return "";
+    const url = new URL(raw);
+    const fromQuery = url.searchParams.get("ticket") || url.searchParams.get("ticket_id") || url.searchParams.get("id");
+    if (fromQuery) return fromQuery.trim().toUpperCase();
+    const matchFromPath = url.pathname.match(/DHS26-\d{3}/i);
+    if (matchFromPath) return matchFromPath[0].toUpperCase();
   } catch {
-    const match = raw.match(/DHS26-\d{3}/i);
-    return match ? match[0].toUpperCase() : "";
+    // Not a URL.
   }
+
+  const match = raw.match(/DHS26-\d{3}/i);
+  return match ? match[0].toUpperCase() : raw.toUpperCase();
 }
 
-function normalizeTicket(ticket, index) {
-  const rawId = 
-    ticket?.ticket_id || 
-    ticket?.Ticket_ID || 
-    ticket?.["Ticket ID"] || 
-    ticket?.qr_id || 
-    ticket?.QR_ID || 
-    ticket?.qr_text || 
-    ticket?.QR_TEXT || 
-    ticket?.registration_url || "";
-    
-  const ticketId = normalizeTicketId(rawId) || (typeof index === 'number' ? `DHS26-${String(index + 1).padStart(3, "0")}` : "");
-
+function normalizeTicket(ticket) {
   return {
     ...ticket,
-    ticket_id: ticketId,
+    ticket_id: normalizeTicketId(ticket?.ticket_id || ticket?.Ticket_ID || ""),
     first_name: ticket?.first_name || ticket?.["First Name"] || "",
     last_name: ticket?.last_name || ticket?.["Last Name"] || "",
     registered: ticket?.registered ?? "NO",
@@ -92,7 +74,7 @@ async function apiGetTicket(ticketId) {
 async function apiListTickets() {
   const data = await fetchJson(`${API_URL}?action=list`);
   if (!data.success) throw new Error(data.error || "Could not load tickets");
-  return data.tickets.map((t, i) => normalizeTicket(t, i));
+  return data.tickets.map(normalizeTicket);
 }
 
 async function apiRegisterTicket(formData) {
@@ -166,36 +148,44 @@ function roleBadge(role) {
 
 const IconSearch = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.35-4.35" />
   </svg>
 );
+
 const IconScan = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M8 12h8" />
   </svg>
 );
+
 const IconBack = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M19 12H5M12 5l-7 7 7 7" />
   </svg>
 );
+
 const IconCheck = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="20 6 9 17 4 12" />
   </svg>
 );
+
 const IconUser = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-  </svg>
-);
-const IconUndo = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
   </svg>
 );
 
-// --- QR SCANNER ---
+const IconUndo = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+  </svg>
+);
+
+// --- QR SCANNER COMPONENT ---
 
 function QRScanner({ onScan, onClose }) {
   const videoRef = useRef(null);
@@ -207,40 +197,58 @@ function QRScanner({ onScan, onClose }) {
 
   useEffect(() => {
     let active = true;
+
     function stopCamera() {
       active = false;
       if (animRef.current) cancelAnimationFrame(animRef.current);
-      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
     }
+
     function scanFrame() {
       if (!active) return;
+
       const video = videoRef.current;
       const canvas = canvasRef.current;
+
       if (video && canvas && video.readyState === video.HAVE_ENOUGH_DATA) {
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
+
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "attemptBoth" });
+
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "attemptBoth",
+        });
+
         if (code?.data) {
-          const id = normalizeTicketId(code.data);
-          if (id) {
-            stopCamera();
-            onScan(id);
-            return;
-          }
+          stopCamera();
+          onScan(normalizeTicketId(code.data));
+          return;
         }
       }
+
       animRef.current = requestAnimationFrame(scanFrame);
     }
+
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+          video: {
+            facingMode: "environment",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
         });
+
         if (!active) return;
+
         streamRef.current = stream;
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
@@ -251,47 +259,84 @@ function QRScanner({ onScan, onClose }) {
         setStatus("No se pudo usar la cámara. Usa entrada manual.");
       }
     }
+
     startCamera();
     return () => stopCamera();
   }, [onScan]);
 
   function handleManual() {
-    const id = normalizeTicketId(manualInput);
-    if (id) onScan(id);
+    if (manualInput.trim()) {
+      onScan(normalizeTicketId(manualInput));
+    }
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#000" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a" }}>
-        <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}><IconBack /></button>
-        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: 1 }}>ESCANEAR TICKET</span>
+        <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
+          <IconBack />
+        </button>
+        <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: 1 }}>
+          ESCANEAR TICKET
+        </span>
       </div>
+
       <div style={{ position: "relative", flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", maxHeight: 380 }}>
         <video ref={videoRef} style={{ width: "100%", height: "100%", objectFit: "cover" }} playsInline muted />
         <canvas ref={canvasRef} style={{ display: "none" }} />
+
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-          <div style={{ position: "relative", width: 220, height: 220 }}>
+          <div style={{ relative: "relative", width: 220, height: 220 }}>
             {[["top", "left"], ["top", "right"], ["bottom", "left"], ["bottom", "right"]].map(([v, h]) => (
-              <div key={`${v}-${h}`} style={{ position: "absolute", [v]: 0, [h]: 0, width: 36, height: 36, borderTop: v === "top" ? "3px solid #00ff88" : "none", borderBottom: v === "bottom" ? "3px solid #00ff88" : "none", borderLeft: h === "left" ? "3px solid #00ff88" : "none", borderRight: h === "right" ? "3px solid #00ff88" : "none" }} />
+              <div
+                key={`${v}-${h}`}
+                style={{
+                  position: "absolute",
+                  [v]: 0,
+                  [h]: 0,
+                  width: 36,
+                  height: 36,
+                  borderTop: v === "top" ? "3px solid #00ff88" : "none",
+                  borderBottom: v === "bottom" ? "3px solid #00ff88" : "none",
+                  borderLeft: h === "left" ? "3px solid #00ff88" : "none",
+                  borderRight: h === "right" ? "3px solid #00ff88" : "none",
+                }}
+              />
             ))}
             <div style={{ position: "absolute", left: 8, right: 8, top: "40%", height: 2, background: "linear-gradient(90deg, transparent, #00ff88, transparent)", animation: "scanLine 1.5s ease-in-out infinite" }} />
           </div>
         </div>
+
         <style>{`@keyframes scanLine { 0%,100%{opacity:0;transform:translateY(-30px)} 50%{opacity:1;transform:translateY(30px)} }`}</style>
       </div>
-      <div style={{ textAlign: "center", padding: "12px 20px", color: "#aaa", fontFamily: "'Space Mono', monospace", fontSize: 13 }}>{status}</div>
+
+      <div style={{ textAlign: "center", padding: "12px 20px", color: "#aaa", fontFamily: "'Space Mono', monospace", fontSize: 13 }}>
+        {status}
+      </div>
+
       <div style={{ padding: "12px 20px 28px", borderTop: "1px solid #1a1a1a" }}>
-        <div style={{ marginBottom: 8, color: "#666", fontFamily: "'Space Mono', monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Entrada manual</div>
+        <div style={{ marginBottom: 8, color: "#666", fontFamily: "'Space Mono', monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
+          Entrada manual
+        </div>
+
         <div style={{ display: "flex", gap: 8 }}>
-          <input value={manualInput} onChange={(e) => setManualInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleManual()} placeholder="DHS26-001" style={{ flex: 1, background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 10, padding: "13px 16px", color: "#fff", fontFamily: "'Space Mono', monospace", fontSize: 16, outline: "none" }} />
-          <button type="button" onClick={handleManual} style={{ background: "#00ff88", color: "#000", border: "none", borderRadius: 10, padding: "13px 20px", fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>IR -&gt;</button>
+          <input
+            value={manualInput}
+            onChange={(event) => setManualInput(event.target.value)}
+            onKeyDown={(event) => event.key === "Enter" && handleManual()}
+            placeholder="DHS26-001"
+            style={{ flex: 1, background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 10, padding: "13px 16px", color: "#fff", fontFamily: "'Space Mono', monospace", fontSize: 16, outline: "none" }}
+          />
+          <button type="button" onClick={handleManual} style={{ background: "#00ff88", color: "#000", border: "none", borderRadius: 10, padding: "13px 20px", fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
+            IR -&gt;
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// --- SHARED COMPONENTS ---
+// --- SHARED FORM STYLES ---
 
 const labelStyle = { display: "block", color: "#777", fontFamily: "'Space Mono', monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, margin: "14px 0 6px" };
 const inputStyle = { width: "100%", background: "#111", border: "1px solid #2a2a2a", borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 16, boxSizing: "border-box", fontFamily: "'DM Sans', sans-serif", outline: "none" };
@@ -300,12 +345,12 @@ function FormInput({ label, value, onChange, required, type = "text" }) {
   return (
     <>
       <label style={labelStyle}>{label}{required ? " *" : ""}</label>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} style={inputStyle} />
+      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} style={inputStyle} />
     </>
   );
 }
 
-// --- SCREENS ---
+// --- SUB-SCREENS ---
 
 function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving }) {
   const [form, setForm] = useState({
@@ -318,35 +363,50 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving }) {
     email: initial?.email || "",
     vendor_rep: initial?.vendor_rep || "",
   });
-  const update = (key, val) => setForm(p => ({ ...p, [key]: val }));
+
+  function update(key, value) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
   const canSubmit = form.first_name && form.last_name && form.phone && form.email && !saving;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0a0a0a" }}>
       <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14 }}>
-        <button type="button" onClick={onCancel} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}><IconBack /></button>
+        <button type="button" onClick={onCancel} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
+          <IconBack />
+        </button>
         <div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: "#fff" }}>REGISTRO</div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#fbbf24", marginTop: 2 }}>{ticketId}</div>
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 140px", WebkitOverflowScrolling: "touch" }}>
-        <FormInput label="Nombre" value={form.first_name} onChange={v => update("first_name", v)} required />
-        <FormInput label="Apellido" value={form.last_name} onChange={v => update("last_name", v)} required />
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 140px" }}>
+        <FormInput label="Nombre" value={form.first_name} onChange={(value) => update("first_name", value)} required />
+        <FormInput label="Apellido" value={form.last_name} onChange={(value) => update("last_name", value)} required />
+
         <label style={labelStyle}>Puesto de trabajo *</label>
-        <select value={form.job_role} onChange={e => update("job_role", e.target.value)} style={inputStyle}>
+        <select value={form.job_role} onChange={(event) => update("job_role", event.target.value)} style={inputStyle}>
           <option value="">Seleccione...</option>
           <option value="ESTILISTA">ESTILISTA</option>
           <option value="PROPIETARIO DE SALON DE BELLEZA">PROPIETARIO DE SALON DE BELLEZA</option>
           <option value="ESTUDIANTE">ESTUDIANTE</option>
         </select>
-        <FormInput label="Licencia de cosmetologia" value={form.cosmetology_license} onChange={v => update("cosmetology_license", v)} />
-        <FormInput label="Telefono" value={form.phone} onChange={v => update("phone", v)} required type="tel" />
-        <FormInput label="Correo electronico" value={form.email} onChange={v => update("email", v)} required type="email" />
-        <FormInput label="Vendedor / Representante" value={form.vendor_rep} onChange={v => update("vendor_rep", v)} />
+
+        <FormInput label="Licencia de cosmetologia" value={form.cosmetology_license} onChange={(value) => update("cosmetology_license", value)} />
+        <FormInput label="Telefono" value={form.phone} onChange={(value) => update("phone", value)} required type="tel" />
+        <FormInput label="Correo electronico" value={form.email} onChange={(value) => update("email", value)} required type="email" />
+        <FormInput label="Vendedor / Representante" value={form.vendor_rep} onChange={(value) => update("vendor_rep", value)} />
       </div>
-      <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)", pointerEvents: "none" }}>
-        <button type="button" disabled={!canSubmit} onClick={() => onSubmit(form)} style={{ pointerEvents: "auto", width: "100%", background: !canSubmit ? "#1a1a1a" : "#fbbf24", color: !canSubmit ? "#444" : "#000", border: "none", borderRadius: 16, padding: 20, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 18, cursor: canSubmit ? "pointer" : "not-allowed" }}>
+
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
+        <button
+          type="button"
+          disabled={!canSubmit}
+          onClick={() => onSubmit(form)}
+          style={{ width: "100%", background: !canSubmit ? "#1a1a1a" : "#fbbf24", color: !canSubmit ? "#444" : "#000", border: "none", borderRadius: 16, padding: 20, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 18, cursor: canSubmit ? "pointer" : "not-allowed", transition: "background 0.2s", letterSpacing: 0.5 }}
+        >
           {saving ? "GUARDANDO..." : "GUARDAR REGISTRO"}
         </button>
       </div>
@@ -359,54 +419,76 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
   const filtered = useMemo(() => {
     if (!query) return attendees;
     const q = query.toLowerCase();
-    return attendees.filter(a => 
-      a.ticket_id?.toLowerCase().includes(q) || 
-      (a.first_name || "").toLowerCase().includes(q) || 
-      (a.last_name || "").toLowerCase().includes(q) || 
-      (a.email || "").toLowerCase().includes(q)
+    return attendees.filter(
+      (a) =>
+        a.ticket_id?.toLowerCase().includes(q) ||
+        (a.first_name || "").toLowerCase().includes(q) ||
+        (a.last_name || "").toLowerCase().includes(q) ||
+        (a.email || "").toLowerCase().includes(q)
     );
   }, [attendees, query]);
+
   const totalChecked = attendees.filter(isCheckedIn).length;
-  const totalReg = attendees.filter(isRegistered).length;
+  const totalRegistered = attendees.filter(isRegistered).length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div style={{ padding: "20px 20px 0", background: "#0d0d0d", zIndex: 10 }}>
+      <div style={{ padding: "20px 20px 0", background: "#0d0d0d" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 22, fontWeight: 700, color: "#fff" }}>DHS 2026</div>
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#555", marginTop: 3 }}>
-              {loading ? "Cargando..." : `${totalChecked} check-ins · ${totalReg} registrados · ${attendees.length} tickets`}
+              {loading ? "Cargando..." : `${totalChecked} check-ins · ${totalRegistered} registrados · ${attendees.length} tickets`}
             </div>
           </div>
-          <button type="button" onClick={onScanNav} style={{ background: "#00ff88", color: "#000", border: "none", borderRadius: 12, padding: "12px 18px", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 14, cursor: "pointer" }}><IconScan /> SCAN</button>
+          <button type="button" onClick={onScanNav} style={{ background: "#00ff88", color: "#000", border: "none", borderRadius: 12, padding: "12px 18px", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+            <IconScan /> SCAN
+          </button>
         </div>
+
         <div style={{ height: 3, background: "#1a1a1a", borderRadius: 2, marginBottom: 14 }}>
           <div style={{ height: "100%", width: `${attendees.length ? (totalChecked / attendees.length) * 100 : 0}%`, background: "#00ff88", borderRadius: 2, transition: "width 0.4s" }} />
         </div>
+
         <div style={{ position: "relative", marginBottom: 16 }}>
-          <div style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#555" }}><IconSearch /></div>
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar por ticket, nombre o email..." style={{ width: "100%", background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 12, padding: "13px 16px 13px 44px", color: "#fff", fontFamily: "'Space Mono', monospace", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+          <div style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#555" }}>
+            <IconSearch />
+          </div>
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar por ticket, nombre o email..."
+            style={{ width: "100%", background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 12, padding: "13px 16px 13px 44px", color: "#fff", fontFamily: "'Space Mono', monospace", fontSize: 14, outline: "none", boxSizing: "border-box" }}
+          />
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 100px", WebkitOverflowScrolling: "touch" }}>
-        {filtered.length === 0 && <div style={{ textAlign: "center", padding: "48px 0", color: "#444", fontFamily: "'Space Mono', monospace" }}>Sin resultados</div>}
-        {filtered.map(a => {
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 100px" }}>
+        {filtered.length === 0 && (
+          <div style={{ textAlign: "center", padding: "48px 0", color: "#444", fontFamily: "'Space Mono', monospace" }}>Sin resultados para "{query}"</div>
+        )}
+        {filtered.map((a) => {
           const checked = isCheckedIn(a);
-          const reg = isRegistered(a);
+          const registered = isRegistered(a);
           const name = [a.first_name, a.last_name].filter(Boolean).join(" ");
           const badge = roleBadge(a.job_role);
           return (
-            <button key={a.ticket_id} type="button" onClick={() => onSelect(a.ticket_id)} style={{ width: "100%", background: "#111", border: `1px solid ${checked ? "#1a3a1a" : reg ? "#252520" : "#2a1a1a"}`, borderRadius: 14, padding: "16px 18px", marginBottom: 10, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", textAlign: "left", position: "relative" }}>
-              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: checked ? "#00ff88" : reg ? "#fbbf24" : "#ff4444" }} />
+            <button
+              type="button"
+              key={a.ticket_id}
+              onClick={() => onSelect(a.ticket_id)}
+              style={{ width: "100%", background: "#111", border: `1px solid ${checked ? "#1a3a1a" : registered ? "#252520" : "#2a1a1a"}`, borderRadius: 14, padding: "16px 18px", marginBottom: 10, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", textAlign: "left", position: "relative", overflow: "hidden" }}
+            >
+              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: checked ? "#00ff88" : registered ? "#fbbf24" : "#ff4444" }} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: "#fff" }}>{a.ticket_id}</span>
                   {a.job_role && <span style={{ background: badge.bg, color: badge.text, fontFamily: "'Space Mono', monospace", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4 }}>{badge.label}</span>}
                 </div>
-                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: reg ? "#aaa" : "#ff7777" }}>{loading ? "Cargando..." : (reg ? name || a.email || "-" : "No registrado")}</div>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: registered ? "#aaa" : "#ff7777" }}>{registered ? name || a.email || "-" : "No registrado"}</div>
+                {a.email && registered && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#555", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.email}</div>}
               </div>
-              <div style={{ width: 32, height: 32, background: checked ? "#00ff88" : "#1a1a1a", borderRadius: "50%", border: checked ? "none" : "1px solid #2a2a2a", display: "flex", alignItems: "center", justifyContent: "center", color: "#000" }}>{checked && <IconCheck />}</div>
+              <div style={{ width: 32, height: 32, background: checked ? "#00ff88" : "#1a1a1a", borderRadius: "50%", border: checked ? "none" : "1px solid #2a2a2a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#000" }}>{checked && <IconCheck />}</div>
             </button>
           );
         })}
@@ -415,93 +497,118 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
   );
 }
 
-function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack, saving, loadingTicket }) {
+function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack, saving }) {
   const checked = isCheckedIn(attendee);
-  const reg = isRegistered(attendee);
+  const registered = isRegistered(attendee);
   const name = [attendee.first_name, attendee.last_name].filter(Boolean).join(" ") || "Sin nombre";
   const badge = roleBadge(attendee.job_role);
 
-  const Field = ({ label, value }) => value ? (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>{label}</div>
-      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: "#ddd" }}>{value}</div>
-    </div>
-  ) : null;
+  function Field({ label, value }) {
+    if (!value) return null;
+    return (
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>{label}</div>
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: "#ddd" }}>{value}</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14 }}>
-        <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}><IconBack /></button>
+        <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
+          <IconBack />
+        </button>
         <div>
           <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: "#fff" }}>{attendee.ticket_id}</div>
-          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: checked ? "#00ff88" : reg ? "#fbbf24" : "#ff7777" }}>
-            {loadingTicket ? "Cargando..." : (checked ? "✓ Check-in completo" : reg ? "Registrado · pendiente" : "No registrado")}
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: checked ? "#00ff88" : registered ? "#fbbf24" : "#ff7777" }}>
+            {checked ? "✓ Check-in completo" : registered ? "Registrado · pendiente check-in" : "No registrado"}
           </div>
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px 180px", WebkitOverflowScrolling: "touch" }}>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px 140px" }}>
         <div style={{ background: "#111", borderRadius: 16, padding: "20px", marginBottom: 16, border: "1px solid #1e1e1e" }}>
           <div style={{ display: "flex", gap: 14 }}>
-            <div style={{ width: 48, height: 48, background: "#1a1a1a", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#555" }}><IconUser /></div>
+            <div style={{ width: 48, height: 48, background: "#1a1a1a", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#555", flexShrink: 0 }}>
+              <IconUser />
+            </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 22, fontWeight: 700, color: reg ? "#fff" : "#ff7777" }}>{loadingTicket ? "..." : (reg ? name : "No registrado")}</div>
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 22, fontWeight: 700, color: registered ? "#fff" : "#ff7777", lineHeight: 1.2 }}>{registered ? name : "No registrado"}</div>
               {attendee.job_role && <span style={{ display: "inline-block", marginTop: 8, background: badge.bg, color: badge.text, fontFamily: "'Space Mono', monospace", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6 }}>{badge.label}</span>}
             </div>
           </div>
         </div>
+
         <div style={{ background: "#111", borderRadius: 16, padding: "20px", marginBottom: 16, border: "1px solid #1e1e1e" }}>
           <Field label="Ticket ID" value={attendee.ticket_id} />
-          <Field label="Licencia" value={attendee.cosmetology_license} />
+          <Field label="Licencia de cosmetologia" value={attendee.cosmetology_license} />
           <Field label="Telefono" value={attendee.phone} />
           <Field label="Email" value={attendee.email} />
-          <Field label="Vendedor" value={attendee.vendor_rep} />
-          {!reg && !loadingTicket && <div style={{ color: "#ff7777", fontSize: 12, fontFamily: "'Space Mono', monospace" }}>Este ticket no tiene registro.</div>}
+          <Field label="Vendedor / Representante" value={attendee.vendor_rep} />
+          {!registered && <div style={{ color: "#ff7777", fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Este ticket aun no tiene informacion de registro.</div>}
         </div>
+
         {checked && (
           <div style={{ background: "#0a1f0a", border: "1px solid #1a3a1a", borderRadius: 16, padding: "18px 20px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 40, height: 40, background: "#00ff88", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#000" }}><IconCheck /></div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, color: "#00ff88", fontSize: 15, fontFamily: "'Space Mono', monospace" }}>Ya hizo check-in</div>
-                <div style={{ fontSize: 11, color: "#4ade80", marginTop: 3, fontFamily: "'Space Mono', monospace" }}>{String(attendee.check_in_time || "")}</div>
+              <div style={{ width: 40, height: 40, background: "#00ff88", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#000" }}>
+                <IconCheck />
               </div>
-              <button type="button" onClick={() => onUndoCheckIn(attendee.ticket_id)} disabled={saving} style={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, padding: 8, color: "#ff4444" }}><IconUndo /></button>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, color: "#00ff88", fontSize: 15 }}>Ya hizo check-in</div>
+                {attendee.check_in_time && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#4ade80", marginTop: 3 }}>{String(attendee.check_in_time)}</div>}
+              </div>
+              <button 
+                type="button" 
+                onClick={() => onUndoCheckIn(attendee.ticket_id)} 
+                disabled={saving}
+                style={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, padding: 8, color: "#ff4444", cursor: "pointer", display: "flex" }}
+                title="Deshacer check-in"
+              >
+                <IconUndo />
+              </button>
             </div>
           </div>
         )}
       </div>
-      <div style={{ position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 480, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)", pointerEvents: "none" }}>
-        <div style={{ pointerEvents: "auto" }}>
-          <button type="button" onClick={() => onRegister(attendee.ticket_id)} style={{ width: "100%", background: reg ? "#222" : "#fbbf24", color: reg ? "#fff" : "#000", border: reg ? "1px solid #333" : "none", borderRadius: 16, padding: 16, fontWeight: 700, marginBottom: 10 }}>{reg ? "EDITAR REGISTRO" : "REGISTRAR TICKET"}</button>
-          {reg && !checked && (
-            <button type="button" disabled={saving} onClick={() => onCheckIn(attendee.ticket_id)} style={{ width: "100%", background: saving ? "#1a1a1a" : "#00ff88", color: saving ? "#444" : "#000", border: "none", borderRadius: 16, padding: 20, fontWeight: 700, fontSize: 18 }}>{saving ? "GUARDANDO..." : "HACER CHECK-IN"}</button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function GuestView({ attendee, onRegister, onLoginNav, loadingTicket }) {
-  const reg = isRegistered(attendee);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", padding: "40px 20px", textAlign: "center" }}>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 14, color: "#555", letterSpacing: 2, marginBottom: 8 }}>DHS 2026</div>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 32, fontWeight: 700, color: "#fff", marginBottom: 12 }}>{attendee.ticket_id}</div>
-      <div style={{ height: 2, background: "#1a1a1a", width: 60, margin: "0 auto 30px" }} />
-      
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-        <div style={{ fontSize: 24, fontWeight: 700, color: reg ? "#00ff88" : "#fbbf24", marginBottom: 16, fontFamily: "'DM Sans', sans-serif" }}>
-          {loadingTicket ? "CARGANDO..." : (reg ? "YA ESTÁS REGISTRADO" : "¡BIENVENIDO!")}
-        </div>
-        <p style={{ color: "#888", marginBottom: 40, lineHeight: 1.6 }}>{reg ? "Tu información ha sido guardada. ¡Te esperamos en el evento!" : "Por favor, completa tu información para habilitar tu acceso."}</p>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
+        {registered && (
+          <button
+            type="button"
+            onClick={() => onRegister(attendee.ticket_id)}
+            style={{
+              width: "100%",
+              background: "#222",
+              color: "#fff",
+              border: "1px solid #333",
+              borderRadius: 16,
+              padding: 16,
+              fontFamily: "'Space Mono', monospace",
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: "pointer",
+              marginBottom: 10,
+              letterSpacing: 0.5
+            }}
+          >
+            EDITAR REGISTRO
+          </button>
+        )}
         
-        <button type="button" onClick={() => onRegister(attendee.ticket_id)} style={{ width: "100%", background: reg ? "#222" : "#fbbf24", color: reg ? "#fff" : "#000", border: reg ? "1px solid #333" : "none", borderRadius: 16, padding: 20, fontWeight: 700, fontSize: 18, marginBottom: 20 }}>{reg ? "EDITAR MI REGISTRO" : "REGISTRAR MI TICKET"}</button>
+        {!registered && (
+          <button type="button" onClick={() => onRegister(attendee.ticket_id)} style={{ width: "100%", background: "#fbbf24", color: "#000", border: "none", borderRadius: 16, padding: 18, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 16, cursor: "pointer", marginBottom: 10, letterSpacing: 0.5 }}>
+            REGISTRAR TICKET
+          </button>
+        )}
         
-        <a href="tel:9726680516" style={{ color: "#60a5fa", textDecoration: "none", fontFamily: "'Space Mono', monospace", fontSize: 13 }}>¿PROBLEMAS? CONTACTAR A DELINO</a>
+        {registered && !checked && (
+          <button type="button" disabled={saving} onClick={() => onCheckIn(attendee.ticket_id)} style={{ width: "100%", background: saving ? "#1a1a1a" : "#00ff88", color: saving ? "#444" : "#000", border: "none", borderRadius: 16, padding: 20, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 18, cursor: saving ? "not-allowed" : "pointer", letterSpacing: 1 }}>
+            {saving ? "GUARDANDO..." : "HACER CHECK-IN"}
+          </button>
+        )}
       </div>
-
-      <button onClick={onLoginNav} style={{ background: "none", border: "none", color: "#222", fontSize: 10, marginTop: 40, fontFamily: "'Space Mono', monospace" }}>MODO STAFF</button>
     </div>
   );
 }
@@ -509,150 +616,187 @@ function GuestView({ attendee, onRegister, onLoginNav, loadingTicket }) {
 // --- MAIN APP ---
 
 export default function App() {
-  const [isStaff, setIsStaff] = useState(localStorage.getItem(STORAGE_KEY) === "true");
-  const [screen, setScreen] = useState("loading");
+  const [screen, setScreen] = useState("list");
   const [attendees, setAttendees] = useState(FALLBACK_ATTENDEES);
   const [selectedId, setSelectedId] = useState(null);
+  const [notFoundMsg, setNotFoundMsg] = useState("");
   const [loading, setLoading] = useState(false);
-  const [loadingTicket, setLoadingTicket] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [passInput, setPassInput] = useState("");
 
-  const selectedAttendee = useMemo(() => {
-    const found = attendees.find(a => a.ticket_id === selectedId);
-    return found || normalizeTicket({ ticket_id: selectedId });
-  }, [attendees, selectedId]);
+  const selectedAttendee = useMemo(() => attendees.find((a) => a.ticket_id === selectedId), [attendees, selectedId]);
 
   const upsertAttendee = useCallback((ticket) => {
-    setAttendees(prev => {
+    setAttendees((prev) => {
       const clean = normalizeTicket(ticket);
-      const exists = prev.some(a => a.ticket_id === clean.ticket_id);
-      if (!exists) return [...prev, clean].sort((a,b) => a.ticket_id.localeCompare(b.ticket_id));
-      return prev.map(a => a.ticket_id === clean.ticket_id ? { ...a, ...clean } : a);
+      const exists = prev.some((a) => a.ticket_id === clean.ticket_id);
+      if (!exists) return [...prev, clean].sort((a, b) => a.ticket_id.localeCompare(b.ticket_id));
+      return prev.map((a) => (a.ticket_id === clean.ticket_id ? { ...a, ...clean } : a));
     });
   }, []);
 
-  const handleSelect = useCallback(async (id, forceStaff = false) => {
-    const cleanId = normalizeTicketId(id);
-    if (!cleanId) return;
-    setSelectedId(cleanId);
-    setScreen(isStaff || forceStaff ? "detail" : "guest");
-    setLoadingTicket(true);
-    try {
-      const t = await apiGetTicket(cleanId);
-      upsertAttendee(t);
-    } catch {
-      setErrorMsg(`${cleanId} no encontrado`);
-      setTimeout(() => setErrorMsg(""), 3000);
-    } finally {
-      setLoadingTicket(false);
-    }
-  }, [isStaff, upsertAttendee]);
+  function showError(msg, ms = 3000) {
+    setNotFoundMsg(msg);
+    window.setTimeout(() => setNotFoundMsg(""), ms);
+  }
 
-  useEffect(() => {
-    const init = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const urlId = normalizeTicketId(params.get("ticket") || params.get("ticket_id") || params.get("id"));
-      
-      if (isStaff) {
-        setScreen(urlId ? "detail" : "list");
-        if (urlId) handleSelect(urlId);
-        await refreshList();
-      } else if (urlId) {
-        handleSelect(urlId);
-      } else {
-        setScreen("login");
+  const handleSelect = useCallback(
+    async (ticketId) => {
+      const cleanId = normalizeTicketId(ticketId);
+      setNotFoundMsg("");
+      setSelectedId(cleanId);
+      setScreen("detail");
+      try {
+        const ticket = await apiGetTicket(cleanId);
+        upsertAttendee(ticket);
+      } catch {
+        showError(`${cleanId} - no encontrado en la hoja`);
       }
-    };
-    init();
-  }, [isStaff]);
+    },
+    [upsertAttendee]
+  );
 
   async function refreshList() {
     setLoading(true);
     try {
       const rows = await apiListTickets();
-      setAttendees(rows);
-    } catch {} finally { setLoading(false); }
-  }
-
-  const handleLogin = () => {
-    if (passInput === STAFF_PASSWORD) {
-      localStorage.setItem(STORAGE_KEY, "true");
-      setIsStaff(true);
-    } else {
-      alert("Contraseña incorrecta");
+      setAttendees(rows.map(normalizeTicket));
+    } catch {
+      // Keep fallback list
+    } finally {
+      setLoading(false);
     }
-  };
-
-  async function handleCheckIn(id) {
-    setSaving(true);
-    try {
-      const up = await apiCheckInTicket(id);
-      upsertAttendee(up);
-    } catch (err) { alert(err.message); } finally { setSaving(false); }
   }
 
-  async function handleUndoCheckIn(id) {
-    if (!window.confirm("¿Anular check-in?")) return;
+  useEffect(() => {
+    refreshList();
+    const params = new URLSearchParams(window.location.search);
+    const ticketFromUrl = params.get("ticket") || params.get("ticket_id") || params.get("id");
+    if (ticketFromUrl) handleSelect(normalizeTicketId(ticketFromUrl));
+  }, [handleSelect]);
+
+  async function handleCheckIn(ticketId) {
     setSaving(true);
     try {
-      const up = await apiUndoCheckInTicket(id);
-      upsertAttendee(up);
-    } catch (err) { alert(err.message); } finally { setSaving(false); }
+      const updated = await apiCheckInTicket(ticketId);
+      upsertAttendee(updated);
+    } catch (err) {
+      showError(err.message || "No se pudo hacer check-in");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  async function handleRegSubmit(data) {
+  async function handleUndoCheckIn(ticketId) {
+    if (!window.confirm("¿Anular el check-in de este ticket?")) return;
     setSaving(true);
     try {
-      const up = await apiRegisterTicket(data);
-      upsertAttendee(up);
-      setScreen(isStaff ? "detail" : "guest");
-    } catch (err) { alert(err.message); } finally { setSaving(false); }
+      const updated = await apiUndoCheckInTicket(ticketId);
+      upsertAttendee(updated);
+    } catch (err) {
+      showError(err.message || "No se pudo anular el check-in");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleRegisterStart(ticketId) {
+    setSelectedId(normalizeTicketId(ticketId));
+    setScreen("register");
+  }
+
+  async function handleRegisterSubmit(formData) {
+    setSaving(true);
+    try {
+      const updated = await apiRegisterTicket(formData);
+      upsertAttendee(updated);
+      setScreen("detail");
+    } catch (err) {
+      showError(err.message || "Error al registrar");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <>
       <style>{`
-        html, body, #root { margin: 0; padding: 0; width: 100%; min-height: 100%; background: #0a0a0a; overflow-x: hidden; }
-        body { overscroll-behavior: none; -webkit-font-smoothing: antialiased; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translate(-50%, -8px); }
+          to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        html,
+        body,
+        #root {
+          margin: 0;
+          padding: 0;
+          width: 100%;
+          min-height: 100%;
+          background: #0a0a0a;
+          overflow-x: hidden;
+        }
+        body {
+          overscroll-behavior: none;
+        }
+        * {
+          box-sizing: border-box;
+          -webkit-tap-highlight-color: transparent;
+        }
       `}</style>
 
-      <div style={{ background: "#0a0a0a", minHeight: "100dvh", width: "100vw", maxWidth: 480, margin: "0 auto", position: "relative", display: "flex", flexDirection: "column", color: "#fff", overflow: "hidden" }}>
-        
-        {screen === "login" && (
-          <div style={{ padding: 40, display: "flex", flexDirection: "column", justifyContent: "center", flex: 1, textAlign: "center" }}>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 24, fontWeight: 700, marginBottom: 40 }}>DHS STAFF</div>
-            <input type="password" value={passInput} onChange={e => setPassInput(e.target.value)} placeholder="Contraseña" style={{ ...inputStyle, textAlign: "center", marginBottom: 20 }} />
-            <button onClick={handleLogin} style={{ background: "#00ff88", color: "#000", border: "none", borderRadius: 12, padding: 18, fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>ENTRAR</button>
-            <p style={{ marginTop: 40, color: "#333", fontSize: 12 }}>Solo personal autorizado</p>
-          </div>
-        )}
-
+      <div
+        style={{
+          background: "#0a0a0a",
+          minHeight: "100dvh",
+          width: "100vw",
+          maxWidth: 480,
+          margin: "0 auto",
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          color: "#fff",
+          overflow: "hidden"
+        }}
+      >
         {screen === "list" && (
-          <AttendeeList attendees={attendees} loading={loading} onSelect={handleSelect} onScanNav={() => setScreen("scan")} />
+          <AttendeeList
+            attendees={attendees}
+            loading={loading}
+            onSelect={handleSelect}
+            onScanNav={() => setScreen("scan")}
+          />
         )}
 
         {screen === "scan" && (
-          <QRScanner onScan={id => handleSelect(id, true)} onClose={() => setScreen("list")} />
+          <QRScanner
+            onScan={(id) => handleSelect(id)}
+            onClose={() => setScreen("list")}
+          />
         )}
 
-        {screen === "detail" && (
-          <AttendeeDetail attendee={selectedAttendee} saving={saving} loadingTicket={loadingTicket} onBack={() => setScreen("list")} onCheckIn={handleCheckIn} onUndoCheckIn={handleUndoCheckIn} onRegister={() => setScreen("register")} />
-        )}
-
-        {screen === "guest" && (
-          <GuestView attendee={selectedAttendee} loadingTicket={loadingTicket} onRegister={() => setScreen("register")} onLoginNav={() => setScreen("login")} />
+        {screen === "detail" && selectedAttendee && (
+          <AttendeeDetail
+            attendee={selectedAttendee}
+            saving={saving}
+            onBack={() => setScreen("list")}
+            onCheckIn={handleCheckIn}
+            onUndoCheckIn={handleUndoCheckIn}
+            onRegister={handleRegisterStart}
+          />
         )}
 
         {screen === "register" && (
-          <RegistrationForm ticketId={selectedId} initial={selectedAttendee} saving={saving} onSubmit={handleRegSubmit} onCancel={() => setScreen(isStaff ? "detail" : "guest")} />
+          <RegistrationForm
+            ticketId={selectedId}
+            initial={selectedAttendee}
+            saving={saving}
+            onSubmit={handleRegisterSubmit}
+            onCancel={() => setScreen("detail")}
+          />
         )}
 
-        {errorMsg && (
-          <div style={{ position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)", width: "calc(100% - 40px)", maxWidth: 400, background: "#ff4444", color: "#fff", padding: "12px 20px", borderRadius: 12, textAlign: "center", fontFamily: "'Space Mono', monospace", fontSize: 13, zIndex: 9999, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
-            {errorMsg}
+        {notFoundMsg && (
+          <div style={{ position: "absolute", bottom: 100, left: 20, right: 20, background: "#ff4444", color: "#fff", padding: "12px 20px", borderRadius: 12, textAlign: "center", fontFamily: "'Space Mono', monospace", fontSize: 13, zIndex: 1000, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+            {notFoundMsg}
           </div>
         )}
       </div>
