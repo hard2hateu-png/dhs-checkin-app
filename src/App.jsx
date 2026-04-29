@@ -272,14 +272,6 @@ function RegistrationDirections() {
   );
 }
 
-function LoadingPanel({ label = "Cargando..." }) {
-  return (
-    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 20px", background: "#0a0a0a" }}>
-      <div style={{ fontFamily: "'Space Mono', monospace", color: "#888", fontSize: 14, letterSpacing: 1 }}>{label}</div>
-    </div>
-  );
-}
-
 function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publicMode = false }) {
   const [form, setForm] = useState({
     ticket_id: ticketId,
@@ -306,26 +298,17 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
   }, [ticketId, initial]);
 
   function update(key, value) { setForm((prev) => ({ ...prev, [key]: value })); }
-  const canSubmit = form.first_name && form.last_name && form.phone && form.email && !saving;
-function clearForm() {
-  setForm({
-    ticket_id: ticketId,
-    first_name: "",
-    last_name: "",
-    job_role: "",
-    cosmetology_license: "",
-    phone: "",
-    email: "",
-    vendor_rep: "",
-  });
-}
+  const canSubmit = publicMode
+    ? form.first_name && form.last_name && form.phone && form.email && !saving
+    : !saving;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, background: "#0a0a0a", minHeight: 0 }}>
       <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
         {!publicMode && <button type="button" onClick={onCancel} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}><IconBack /></button>}
         <div><div style={{ fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: "#fff" }}>REGISTRO</div><div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#fbbf24", marginTop: 2 }}>{ticketId}</div></div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 140px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 128px" }}>
         <RegistrationDirections />
         <FormInput label="Nombre" value={form.first_name} onChange={(v) => update("first_name", v)} required />
         <FormInput label="Apellido" value={form.last_name} onChange={(v) => update("last_name", v)} required />
@@ -338,30 +321,8 @@ function clearForm() {
         <FormInput label="Correo electronico" value={form.email} onChange={(v) => update("email", v)} required type="email" />
         <FormInput label="Vendedor / Representante" value={form.vendor_rep} onChange={(v) => update("vendor_rep", v)} />
       </div>
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px 20px 28px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
-        {!publicMode && (
-  <button
-    type="button"
-    onClick={clearForm}
-    style={{
-      width: "100%",
-      background: "#1a1a1a",
-      color: "#ff4444",
-      border: "1px solid #333",
-      borderRadius: 16,
-      padding: 16,
-      fontFamily: "'Space Mono', monospace",
-      fontWeight: 700,
-      fontSize: 14,
-      cursor: "pointer",
-      marginBottom: 10,
-      letterSpacing: 0.5
-    }}
-  >
-    LIMPIAR FORMULARIO
-  </button>
-)}
-        <button type="button" disabled={!canSubmit} onClick={() => onSubmit(form)} style={{ width: "100%", background: !canSubmit ? "#1a1a1a" : "#fbbf24", color: !canSubmit ? "#444" : "#000", border: "none", borderRadius: 16, padding: 20, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 18, cursor: canSubmit ? "pointer" : "not-allowed", transition: "background 0.2s", letterSpacing: 0.5 }}>{saving ? "GUARDANDO..." : "GUARDAR REGISTRO"}</button>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "12px 20px 22px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
+        <button type="button" disabled={!canSubmit} onClick={() => onSubmit(form)} style={{ width: "100%", background: !canSubmit ? "#1a1a1a" : "#fbbf24", color: !canSubmit ? "#444" : "#000", border: "none", borderRadius: 14, padding: 15, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 16, cursor: canSubmit ? "pointer" : "not-allowed", transition: "background 0.2s", letterSpacing: 0.5 }}>{saving ? "GUARDANDO..." : "GUARDAR REGISTRO"}</button>
       </div>
     </div>
   );
@@ -476,22 +437,21 @@ export default function App() {
   }, []);
   const isPublicTicketMode = Boolean(urlTicketId);
   const [staffUnlocked, setStaffUnlocked] = useState(() => isPublicTicketMode ? false : sessionStorage.getItem("dhs_staff_unlocked") === "true");
-  const [screen, setScreen] = useState(isPublicTicketMode ? "loading" : "list");
-  const [attendees, setAttendees] = useState(() => {
-    if (isPublicTicketMode) return [];
-    try {
-      const cached = sessionStorage.getItem("dhs_ticket_cache");
-      return cached ? JSON.parse(cached).map(normalizeTicket) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [screen, setScreen] = useState(isPublicTicketMode ? "register" : "list");
+  const [attendees, setAttendees] = useState(FALLBACK_ATTENDEES);
   const [selectedId, setSelectedId] = useState(isPublicTicketMode ? urlTicketId : null);
   const [notFoundMsg, setNotFoundMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [listHydrated, setListHydrated] = useState(() => {
+    if (isPublicTicketMode) return true;
+    try {
+      return Boolean(sessionStorage.getItem("dhs_ticket_cache"));
+    } catch {
+      return false;
+    }
+  });
   const [saving, setSaving] = useState(false);
   const [publicRegistered, setPublicRegistered] = useState(false);
-  const [publicEditing, setPublicEditing] = useState(false);
   const selectedAttendee = useMemo(() => attendees.find((a) => a.ticket_id === selectedId), [attendees, selectedId]);
   const publicTicketAlreadyRegistered = Boolean(isPublicTicketMode && selectedAttendee && isRegistered(selectedAttendee));
 
@@ -510,29 +470,13 @@ export default function App() {
     const cleanId = normalizeTicketId(ticketId);
     setNotFoundMsg("");
     setSelectedId(cleanId);
-    setScreen(isPublicTicketMode ? "loading" : "detail");
-
+    setScreen(isPublicTicketMode ? "register" : "detail");
     try {
       const ticket = await apiGetTicket(cleanId);
       upsertAttendee(ticket);
-
-      if (isPublicTicketMode) {
-        if (isRegistered(ticket)) {
-          setPublicRegistered(true);
-          setPublicEditing(false);
-          setScreen("view");
-        } else {
-          setPublicRegistered(false);
-          setPublicEditing(true);
-          setScreen("register");
-        }
-      }
+      if (isPublicTicketMode && isRegistered(ticket)) setPublicRegistered(true);
     } catch {
-      if (isPublicTicketMode) {
-        setPublicRegistered(false);
-        setPublicEditing(true);
-        setScreen("register");
-      }
+      if (isPublicTicketMode) setPublicRegistered(false);
       showError(`${cleanId} - no encontrado en la hoja`);
     }
   }, [isPublicTicketMode, upsertAttendee]);
@@ -549,6 +493,7 @@ export default function App() {
       setAttendees((prev) => (prev.length ? prev : FALLBACK_ATTENDEES));
     } finally {
       setLoading(false);
+      setListHydrated(true);
     }
   }
 
@@ -559,7 +504,7 @@ export default function App() {
 
   async function handleCheckIn(ticketId) { if (isPublicTicketMode || !staffUnlocked) return; setSaving(true); try { const updated = await apiCheckInTicket(ticketId); upsertAttendee(updated); } catch (err) { showError(err.message || "No se pudo hacer check-in"); } finally { setSaving(false); } }
   async function handleUndoCheckIn(ticketId) { if (isPublicTicketMode || !staffUnlocked) return; if (!window.confirm("¿Anular el check-in de este ticket?")) return; setSaving(true); try { const updated = await apiUndoCheckInTicket(ticketId); upsertAttendee(updated); } catch (err) { showError(err.message || "No se pudo anular el check-in"); } finally { setSaving(false); } }
-  function handleRegisterStart(ticketId) { const cleanId = normalizeTicketId(ticketId); if (isPublicTicketMode && cleanId !== urlTicketId) return; setSelectedId(cleanId); setPublicEditing(true); setPublicRegistered(false); setScreen("register"); }
+  function handleRegisterStart(ticketId) { const cleanId = normalizeTicketId(ticketId); if (isPublicTicketMode && cleanId !== urlTicketId) return; setSelectedId(cleanId); setPublicRegistered(false); setScreen("register"); }
   async function handleRegisterSubmit(formData) {
     const cleanId = normalizeTicketId(formData.ticket_id);
     if (isPublicTicketMode && cleanId !== urlTicketId) { showError("Solo puedes editar este ticket"); return; }
@@ -567,14 +512,14 @@ export default function App() {
     try {
       const updated = await apiRegisterTicket({ ...formData, ticket_id: isPublicTicketMode ? urlTicketId : cleanId });
       upsertAttendee(updated);
-      if (isPublicTicketMode) { setPublicRegistered(true); setPublicEditing(false); setScreen("view"); } else { setScreen("detail"); refreshList(); }
+      if (isPublicTicketMode) setPublicRegistered(true); else { setScreen("detail"); refreshList(); }
     } catch (err) { showError(err.message || "Error al registrar"); } finally { setSaving(false); }
   }
 
   const showStaffApp = !isPublicTicketMode && staffUnlocked;
   const showPasswordScreen = !isPublicTicketMode && !staffUnlocked;
-  const showPublicSuccess = isPublicTicketMode && screen === "view" && (publicRegistered || publicTicketAlreadyRegistered);
-  const showPublicForm = isPublicTicketMode && screen === "register" && (publicEditing || (!publicRegistered && !publicTicketAlreadyRegistered));
+  const showPublicSuccess = isPublicTicketMode && (publicRegistered || publicTicketAlreadyRegistered);
+  const showPublicForm = isPublicTicketMode && !publicRegistered && !publicTicketAlreadyRegistered;
 
   return (
     <>
@@ -583,10 +528,11 @@ export default function App() {
         <GlobalHeader />
         {showPasswordScreen && <StaffPasswordScreen onUnlock={() => setStaffUnlocked(true)} />}
         {isPublicTicketMode && screen === "loading" && <LoadingPanel label="Buscando registro..." />}
-        {showStaffApp && screen === "list" && <AttendeeList attendees={attendees} loading={loading} onSelect={handleSelect} onScanNav={() => setScreen("scan")} />}
+        {showStaffApp && screen === "list" && !listHydrated && <LoadingPanel label="Cargando tickets..." />}
+        {showStaffApp && screen === "list" && listHydrated && <AttendeeList attendees={attendees} loading={loading} onSelect={handleSelect} onScanNav={() => setScreen("scan")} />}
         {showStaffApp && screen === "scan" && <QRScanner onScan={(id) => handleSelect(id)} onClose={() => { setScreen("list"); refreshList(); }} />}
         {showStaffApp && screen === "detail" && selectedAttendee && <AttendeeDetail attendee={selectedAttendee} saving={saving} onBack={() => { setScreen("list"); refreshList(); }} onCheckIn={handleCheckIn} onUndoCheckIn={handleUndoCheckIn} onRegister={handleRegisterStart} />}
-        {showPublicSuccess && <PublicRegistrationSuccess ticketId={selectedId} attendee={selectedAttendee} onEdit={() => { setPublicEditing(true); setPublicRegistered(false); setScreen("register"); }} />}
+        {showPublicSuccess && <PublicRegistrationSuccess ticketId={selectedId} attendee={selectedAttendee} onEdit={() => setPublicRegistered(false)} />}
         {(showStaffApp || showPublicForm) && screen === "register" && <RegistrationForm ticketId={selectedId} initial={selectedAttendee} saving={saving} publicMode={isPublicTicketMode} onSubmit={handleRegisterSubmit} onCancel={() => { if (!isPublicTicketMode) setScreen("detail"); }} />}
         {notFoundMsg && <div style={{ position: "absolute", bottom: 100, left: 20, right: 20, background: notFoundMsg === "Registro guardado" ? "#00ff88" : "#ff4444", color: notFoundMsg === "Registro guardado" ? "#000" : "#fff", padding: "12px 20px", borderRadius: 12, textAlign: "center", fontFamily: "'Space Mono', monospace", fontSize: 13, zIndex: 1000, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>{notFoundMsg}</div>}
       </div>
