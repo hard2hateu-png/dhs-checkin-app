@@ -272,6 +272,14 @@ function RegistrationDirections() {
   );
 }
 
+function LoadingPanel({ label = "Cargando..." }) {
+  return (
+    <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 20px", background: "#0a0a0a" }}>
+      <div style={{ fontFamily: "'Space Mono', monospace", color: "#888", fontSize: 14, letterSpacing: 1 }}>{label}</div>
+    </div>
+  );
+}
+
 function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publicMode = false }) {
   const [form, setForm] = useState({
     ticket_id: ticketId,
@@ -435,13 +443,22 @@ export default function App() {
   }, []);
   const isPublicTicketMode = Boolean(urlTicketId);
   const [staffUnlocked, setStaffUnlocked] = useState(() => isPublicTicketMode ? false : sessionStorage.getItem("dhs_staff_unlocked") === "true");
-  const [screen, setScreen] = useState(isPublicTicketMode ? "register" : "list");
-  const [attendees, setAttendees] = useState(FALLBACK_ATTENDEES);
+  const [screen, setScreen] = useState(isPublicTicketMode ? "loading" : "list");
+  const [attendees, setAttendees] = useState(() => {
+    if (isPublicTicketMode) return [];
+    try {
+      const cached = sessionStorage.getItem("dhs_ticket_cache");
+      return cached ? JSON.parse(cached).map(normalizeTicket) : [];
+    } catch {
+      return [];
+    }
+  });
   const [selectedId, setSelectedId] = useState(isPublicTicketMode ? urlTicketId : null);
   const [notFoundMsg, setNotFoundMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [publicRegistered, setPublicRegistered] = useState(false);
+  const [publicEditing, setPublicEditing] = useState(false);
   const selectedAttendee = useMemo(() => attendees.find((a) => a.ticket_id === selectedId), [attendees, selectedId]);
   const publicTicketAlreadyRegistered = Boolean(isPublicTicketMode && selectedAttendee && isRegistered(selectedAttendee));
 
@@ -460,13 +477,29 @@ export default function App() {
     const cleanId = normalizeTicketId(ticketId);
     setNotFoundMsg("");
     setSelectedId(cleanId);
-    setScreen(isPublicTicketMode ? "register" : "detail");
+    setScreen(isPublicTicketMode ? "loading" : "detail");
+
     try {
       const ticket = await apiGetTicket(cleanId);
       upsertAttendee(ticket);
-      if (isPublicTicketMode && isRegistered(ticket)) setPublicRegistered(true);
+
+      if (isPublicTicketMode) {
+        if (isRegistered(ticket)) {
+          setPublicRegistered(true);
+          setPublicEditing(false);
+          setScreen("view");
+        } else {
+          setPublicRegistered(false);
+          setPublicEditing(true);
+          setScreen("register");
+        }
+      }
     } catch {
-      if (isPublicTicketMode) setPublicRegistered(false);
+      if (isPublicTicketMode) {
+        setPublicRegistered(false);
+        setPublicEditing(true);
+        setScreen("register");
+      }
       showError(`${cleanId} - no encontrado en la hoja`);
     }
   }, [isPublicTicketMode, upsertAttendee]);
@@ -474,17 +507,26 @@ export default function App() {
   async function refreshList() {
     if (isPublicTicketMode || !staffUnlocked) return;
     setLoading(true);
-    try { const rows = await apiListTickets(); setAttendees(rows.map(normalizeTicket)); } catch { } finally { setLoading(false); }
+    try {
+      const rows = await apiListTickets();
+      const normalized = rows.map(normalizeTicket);
+      setAttendees(normalized);
+      sessionStorage.setItem("dhs_ticket_cache", JSON.stringify(normalized));
+    } catch {
+      setAttendees((prev) => (prev.length ? prev : FALLBACK_ATTENDEES));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
-    if (isPublicTicketMode) { setSelectedId(urlTicketId); setScreen("register"); handleSelect(urlTicketId); return; }
+    if (isPublicTicketMode) { setSelectedId(urlTicketId); setScreen("loading"); handleSelect(urlTicketId); return; }
     if (staffUnlocked) refreshList();
   }, [handleSelect, isPublicTicketMode, staffUnlocked, urlTicketId]);
 
   async function handleCheckIn(ticketId) { if (isPublicTicketMode || !staffUnlocked) return; setSaving(true); try { const updated = await apiCheckInTicket(ticketId); upsertAttendee(updated); } catch (err) { showError(err.message || "No se pudo hacer check-in"); } finally { setSaving(false); } }
   async function handleUndoCheckIn(ticketId) { if (isPublicTicketMode || !staffUnlocked) return; if (!window.confirm("¿Anular el check-in de este ticket?")) return; setSaving(true); try { const updated = await apiUndoCheckInTicket(ticketId); upsertAttendee(updated); } catch (err) { showError(err.message || "No se pudo anular el check-in"); } finally { setSaving(false); } }
-  function handleRegisterStart(ticketId) { const cleanId = normalizeTicketId(ticketId); if (isPublicTicketMode && cleanId !== urlTicketId) return; setSelectedId(cleanId); setPublicRegistered(false); setScreen("register"); }
+  function handleRegisterStart(ticketId) { const cleanId = normalizeTicketId(ticketId); if (isPublicTicketMode && cleanId !== urlTicketId) return; setSelectedId(cleanId); setPublicEditing(true); setPublicRegistered(false); setScreen("register"); }
   async function handleRegisterSubmit(formData) {
     const cleanId = normalizeTicketId(formData.ticket_id);
     if (isPublicTicketMode && cleanId !== urlTicketId) { showError("Solo puedes editar este ticket"); return; }
@@ -492,14 +534,14 @@ export default function App() {
     try {
       const updated = await apiRegisterTicket({ ...formData, ticket_id: isPublicTicketMode ? urlTicketId : cleanId });
       upsertAttendee(updated);
-      if (isPublicTicketMode) setPublicRegistered(true); else { setScreen("detail"); refreshList(); }
+      if (isPublicTicketMode) { setPublicRegistered(true); setPublicEditing(false); setScreen("view"); } else { setScreen("detail"); refreshList(); }
     } catch (err) { showError(err.message || "Error al registrar"); } finally { setSaving(false); }
   }
 
   const showStaffApp = !isPublicTicketMode && staffUnlocked;
   const showPasswordScreen = !isPublicTicketMode && !staffUnlocked;
-  const showPublicSuccess = isPublicTicketMode && (publicRegistered || publicTicketAlreadyRegistered);
-  const showPublicForm = isPublicTicketMode && !publicRegistered && !publicTicketAlreadyRegistered;
+  const showPublicSuccess = isPublicTicketMode && screen === "view" && (publicRegistered || publicTicketAlreadyRegistered);
+  const showPublicForm = isPublicTicketMode && screen === "register" && (publicEditing || (!publicRegistered && !publicTicketAlreadyRegistered));
 
   return (
     <>
@@ -507,10 +549,11 @@ export default function App() {
       <div style={{ background: "#0a0a0a", minHeight: "100dvh", height: "100dvh", width: "100vw", maxWidth: 480, margin: "0 auto", position: "relative", display: "flex", flexDirection: "column", color: "#fff", overflow: "hidden" }}>
         <GlobalHeader />
         {showPasswordScreen && <StaffPasswordScreen onUnlock={() => setStaffUnlocked(true)} />}
+        {isPublicTicketMode && screen === "loading" && <LoadingPanel label="Buscando registro..." />}
         {showStaffApp && screen === "list" && <AttendeeList attendees={attendees} loading={loading} onSelect={handleSelect} onScanNav={() => setScreen("scan")} />}
         {showStaffApp && screen === "scan" && <QRScanner onScan={(id) => handleSelect(id)} onClose={() => { setScreen("list"); refreshList(); }} />}
         {showStaffApp && screen === "detail" && selectedAttendee && <AttendeeDetail attendee={selectedAttendee} saving={saving} onBack={() => { setScreen("list"); refreshList(); }} onCheckIn={handleCheckIn} onUndoCheckIn={handleUndoCheckIn} onRegister={handleRegisterStart} />}
-        {showPublicSuccess && <PublicRegistrationSuccess ticketId={selectedId} attendee={selectedAttendee} onEdit={() => setPublicRegistered(false)} />}
+        {showPublicSuccess && <PublicRegistrationSuccess ticketId={selectedId} attendee={selectedAttendee} onEdit={() => { setPublicEditing(true); setPublicRegistered(false); setScreen("register"); }} />}
         {(showStaffApp || showPublicForm) && screen === "register" && <RegistrationForm ticketId={selectedId} initial={selectedAttendee} saving={saving} publicMode={isPublicTicketMode} onSubmit={handleRegisterSubmit} onCancel={() => { if (!isPublicTicketMode) setScreen("detail"); }} />}
         {notFoundMsg && <div style={{ position: "absolute", bottom: 100, left: 20, right: 20, background: notFoundMsg === "Registro guardado" ? "#00ff88" : "#ff4444", color: notFoundMsg === "Registro guardado" ? "#000" : "#fff", padding: "12px 20px", borderRadius: 12, textAlign: "center", fontFamily: "'Space Mono', monospace", fontSize: 13, zIndex: 1000, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>{notFoundMsg}</div>}
       </div>
