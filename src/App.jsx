@@ -94,34 +94,6 @@ async function apiRegisterTicket(formData) {
   return normalizeTicket(data.ticket);
 }
 
-async function apiUnregisterTicket(ticketId) {
-  const cleanId = normalizeTicketId(ticketId);
-  const data = await fetchJson(API_URL, {
-    method: "POST",
-    body: JSON.stringify({
-      action: "unregister",
-      ticket_id: cleanId,
-    }),
-  });
-  if (!data.success) throw new Error(data.error || "Unregister failed");
-  return normalizeTicket(
-    data.ticket || {
-      ticket_id: cleanId,
-      first_name: "",
-      last_name: "",
-      job_role: "",
-      cosmetology_license: "",
-      phone: "",
-      email: "",
-      vendor_rep: "",
-      registered: "NO",
-      qr_scanned: 0,
-      checked_in: false,
-      check_in_time: "",
-    }
-  );
-}
-
 async function apiCheckInTicket(ticketId) {
   const data = await fetchJson(API_URL, {
     method: "POST",
@@ -641,14 +613,26 @@ export default function App() {
     const cleanId = normalizeTicketId(formData.ticket_id);
     if (isPublicTicketMode && cleanId !== urlTicketId) { showError("Solo puedes editar este ticket"); return; }
 
-    const shouldUnregister = !isPublicTicketMode && isEmptyRegistrationPayload(formData);
-    if (shouldUnregister && !window.confirm("¿Eliminar/limpiar el registro de este ticket?")) return;
+    const shouldClearRegistration = !isPublicTicketMode && isEmptyRegistrationPayload(formData);
+    if (shouldClearRegistration && !window.confirm("¿Limpiar registro de este ticket?")) return;
 
     setSaving(true);
     try {
-      const updated = shouldUnregister
-        ? await apiUnregisterTicket(cleanId)
-        : await apiRegisterTicket({ ...formData, ticket_id: isPublicTicketMode ? urlTicketId : cleanId });
+      const updated = await apiRegisterTicket(
+        shouldClearRegistration
+          ? {
+              ticket_id: cleanId,
+              first_name: "",
+              last_name: "",
+              job_role: "",
+              cosmetology_license: "",
+              phone: "",
+              email: "",
+              vendor_rep: "",
+              registered: "NO",
+            }
+          : { ...formData, ticket_id: isPublicTicketMode ? urlTicketId : cleanId }
+      );
 
       upsertAttendee(updated);
 
@@ -660,7 +644,7 @@ export default function App() {
         refreshList();
       }
     } catch (err) {
-      showError(err.message || (shouldUnregister ? "Error al eliminar registro" : "Error al registrar"));
+      showError(err.message || (shouldClearRegistration ? "Error al limpiar registro" : "Error al registrar"));
     } finally {
       setSaving(false);
     }
