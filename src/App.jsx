@@ -442,14 +442,6 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(isPublicTicketMode ? urlTicketId : null);
   const [notFoundMsg, setNotFoundMsg] = useState("");
   const [loading, setLoading] = useState(false);
-  const [listHydrated, setListHydrated] = useState(() => {
-    if (isPublicTicketMode) return true;
-    try {
-      return Boolean(sessionStorage.getItem("dhs_ticket_cache"));
-    } catch {
-      return false;
-    }
-  });
   const [saving, setSaving] = useState(false);
   const [publicRegistered, setPublicRegistered] = useState(false);
   const selectedAttendee = useMemo(() => attendees.find((a) => a.ticket_id === selectedId), [attendees, selectedId]);
@@ -484,21 +476,11 @@ export default function App() {
   async function refreshList() {
     if (isPublicTicketMode || !staffUnlocked) return;
     setLoading(true);
-    try {
-      const rows = await apiListTickets();
-      const normalized = rows.map(normalizeTicket);
-      setAttendees(normalized);
-      sessionStorage.setItem("dhs_ticket_cache", JSON.stringify(normalized));
-    } catch {
-      setAttendees((prev) => (prev.length ? prev : FALLBACK_ATTENDEES));
-    } finally {
-      setLoading(false);
-      setListHydrated(true);
-    }
+    try { const rows = await apiListTickets(); setAttendees(rows.map(normalizeTicket)); } catch { } finally { setLoading(false); }
   }
 
   useEffect(() => {
-    if (isPublicTicketMode) { setSelectedId(urlTicketId); setScreen("loading"); handleSelect(urlTicketId); return; }
+    if (isPublicTicketMode) { setSelectedId(urlTicketId); setScreen("register"); handleSelect(urlTicketId); return; }
     if (staffUnlocked) refreshList();
   }, [handleSelect, isPublicTicketMode, staffUnlocked, urlTicketId]);
 
@@ -527,9 +509,7 @@ export default function App() {
       <div style={{ background: "#0a0a0a", minHeight: "100dvh", height: "100dvh", width: "100vw", maxWidth: 480, margin: "0 auto", position: "relative", display: "flex", flexDirection: "column", color: "#fff", overflow: "hidden" }}>
         <GlobalHeader />
         {showPasswordScreen && <StaffPasswordScreen onUnlock={() => setStaffUnlocked(true)} />}
-        {isPublicTicketMode && screen === "loading" && <LoadingPanel label="Buscando registro..." />}
-        {showStaffApp && screen === "list" && !listHydrated && <LoadingPanel label="Cargando tickets..." />}
-        {showStaffApp && screen === "list" && listHydrated && <AttendeeList attendees={attendees} loading={loading} onSelect={handleSelect} onScanNav={() => setScreen("scan")} />}
+        {showStaffApp && screen === "list" && <AttendeeList attendees={attendees} loading={loading} onSelect={handleSelect} onScanNav={() => setScreen("scan")} />}
         {showStaffApp && screen === "scan" && <QRScanner onScan={(id) => handleSelect(id)} onClose={() => { setScreen("list"); refreshList(); }} />}
         {showStaffApp && screen === "detail" && selectedAttendee && <AttendeeDetail attendee={selectedAttendee} saving={saving} onBack={() => { setScreen("list"); refreshList(); }} onCheckIn={handleCheckIn} onUndoCheckIn={handleUndoCheckIn} onRegister={handleRegisterStart} />}
         {showPublicSuccess && <PublicRegistrationSuccess ticketId={selectedId} attendee={selectedAttendee} onEdit={() => setPublicRegistered(false)} />}
