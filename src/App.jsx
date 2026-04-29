@@ -323,7 +323,14 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
   const canSubmit = publicMode
     ? form.first_name && form.last_name && form.phone && form.email && !saving
     : !saving;
-
+const isEmptyForm =
+  !form.first_name &&
+  !form.last_name &&
+  !form.job_role &&
+  !form.cosmetology_license &&
+  !form.phone &&
+  !form.email &&
+  !form.vendor_rep;
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, background: "#0a0a0a", minHeight: 0 }}>
       <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
@@ -366,8 +373,35 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
             LIMPIAR FORMULARIO
           </button>
         )}
-        <button type="button" disabled={!canSubmit} onClick={() => onSubmit(form)} style={{ width: "100%", background: !canSubmit ? "#1a1a1a" : "#fbbf24", color: !canSubmit ? "#444" : "#000", border: "none", borderRadius: 14, padding: 15, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 16, cursor: canSubmit ? "pointer" : "not-allowed", transition: "background 0.2s", letterSpacing: 0.5 }}>{saving ? "GUARDANDO..." : "GUARDAR REGISTRO"}</button>
-      </div>
+        <button
+  type="button"
+  disabled={!canSubmit}
+  onClick={() => onSubmit(form)}
+  style={{
+    width: "100%",
+    background: !canSubmit
+      ? "#1a1a1a"
+      : isEmptyForm && !publicMode
+      ? "#ff4444"
+      : "#fbbf24",
+    color: !canSubmit ? "#444" : isEmptyForm && !publicMode ? "#fff" : "#000",
+    border: "none",
+    borderRadius: 14,
+    padding: 15,
+    fontFamily: "'Space Mono', monospace",
+    fontWeight: 700,
+    fontSize: 16,
+    cursor: canSubmit ? "pointer" : "not-allowed",
+    letterSpacing: 0.5
+  }}
+>
+  {saving
+    ? "GUARDANDO..."
+    : isEmptyForm && !publicMode
+    ? "ELIMINAR REGISTRO"
+    : "GUARDAR REGISTRO"}
+</button>
+          </div>
     </div>
   );
 }
