@@ -242,7 +242,6 @@ function QRScanner({ onScan, onClose }) {
             <div style={{ position: "absolute", left: 8, right: 8, top: "40%", height: 2, background: "linear-gradient(90deg, transparent, #00ff88, transparent)", animation: "scanLine 1.5s ease-in-out infinite" }} />
           </div>
         </div>
-        <style>{`@keyframes scanLine { 0%,100%{opacity:0;transform:translateY(-30px)} 50%{opacity:1;transform:translateY(30px)} }`}</style>
       </div>
       <div style={{ textAlign: "center", padding: "12px 20px", color: "#aaa", fontFamily: "'Space Mono', monospace", fontSize: 13 }}>{status}</div>
       <div style={{ padding: "12px 20px 28px", borderTop: "1px solid #1a1a1a" }}>
@@ -267,7 +266,7 @@ function RegistrationDirections() {
   return (
     <div style={{ background: "#111", border: "1px solid rgba(251, 191, 36, 0.35)", borderRadius: 16, padding: "14px 18px", marginBottom: 16 }}>
       <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Instrucciones</div>
-      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, lineHeight: 1.35, color: "#ddd" }}>Por favor completa todos los campos requeridos. Verifica que tu información esté correcta antes de enviar.<br />
+      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, lineHeight: 1.35, color: "#ddd" }}>Por favor completa todos los campos requeridos. Verifica que tu información esté correcta antes de enviar.<br />Solo podrás editar y enviar este registro.</div>
     </div>
   );
 }
@@ -708,7 +707,7 @@ export default function App() {
 
   return (
     <>
-      <style>{`html,body,#root{margin:0;padding:0;width:100%;min-height:100%;background:#0a0a0a;overflow-x:hidden} body{overscroll-behavior:none} *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}`}</style>
+      <style>{`@keyframes scanLine{0%,100%{opacity:0;transform:translateY(-30px)}50%{opacity:1;transform:translateY(30px)}} html,body,#root{margin:0;padding:0;width:100%;min-height:100%;background:#0a0a0a;overflow-x:hidden} body{overscroll-behavior:none} *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}`}</style>
       <div style={{ background: "#0a0a0a", minHeight: "100dvh", height: "100dvh", width: "100vw", maxWidth: 480, margin: "0 auto", position: "relative", display: "flex", flexDirection: "column", color: "#fff", overflow: "hidden" }}>
         <GlobalHeader />
         {showPasswordScreen && <StaffPasswordScreen onUnlock={() => setStaffUnlocked(true)} />}
