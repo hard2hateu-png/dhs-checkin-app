@@ -969,7 +969,6 @@ export default function App() {
         style={{
           background: "#0a0a0a",
           minHeight: "100dvh",
-          <GlobalHeader />
           width: "100vw",
           maxWidth: 480,
           margin: "0 auto",
@@ -980,6 +979,7 @@ export default function App() {
           overflow: "hidden"
         }}
       >
+        <GlobalHeader />
         {showPasswordScreen && (
           <StaffPasswordScreen onUnlock={() => setStaffUnlocked(true)} />
         )}
