@@ -688,7 +688,7 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading, onLogout }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 80px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 20px" }}>
         {loading && (
           <div style={{ textAlign: "center", padding: "48px 0", color: "#444", fontFamily: "'Space Mono', monospace" }}>
             Cargando lista...
@@ -705,42 +705,57 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading, onLogout }) {
           const checked = isCheckedIn(a);
           const registered = isRegistered(a);
           const name = [a.first_name, a.last_name].filter(Boolean).join(" ");
-          const badge = roleBadge(a.job_role);
 
           return (
             <button
               type="button"
               key={a.ticket_id}
               onClick={() => onSelect(a.ticket_id)}
-              style={{ width: "100%", background: "#111", border: `1px solid ${checked ? "#1a3a1a" : registered ? "#252520" : "#2a1a1a"}`, borderRadius: 14, padding: "16px 18px", marginBottom: 10, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", textAlign: "left", position: "relative", overflow: "hidden" }}
+              style={{
+                width: "100%",
+                background: "#111",
+                border: "1px solid #1f1f1f",
+                borderRadius: 16,
+                padding: "18px",
+                marginBottom: 10,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 14,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
             >
-              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: checked ? "#00ff88" : registered ? "#fbbf24" : "#ff4444" }} />
-
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: "#fff" }}>
-                    {a.ticket_id}
-                  </span>
-
-                  {a.job_role && (
-                    <span style={{ background: badge.bg, color: badge.text, fontFamily: "'Space Mono', monospace", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4 }}>
-                      {badge.label}
-                    </span>
-                  )}
+                <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 5 }}>
+                  {a.ticket_id}
                 </div>
 
                 <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: registered ? "#aaa" : "#ff7777" }}>
                   {registered ? name || a.email || "-" : "No registrado"}
                 </div>
 
-                {a.email && registered && (
-                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#555", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {registered && a.email && (
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#555", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {a.email}
                   </div>
                 )}
               </div>
 
-              <div style={{ width: 32, height: 32, background: checked ? "#00ff88" : "#1a1a1a", borderRadius: "50%", border: checked ? "none" : "1px solid #2a2a2a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#000" }}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  border: checked ? "none" : "1px solid #333",
+                  background: checked ? "#00ff88" : "#1a1a1a",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: checked ? "#000" : "#333",
+                  flexShrink: 0,
+                }}
+              >
                 {checked && <IconCheck />}
               </div>
             </button>
@@ -748,13 +763,15 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading, onLogout }) {
         })}
       </div>
 
-      <button
-        type="button"
-        onClick={onLogout}
-        style={{ position: "absolute", bottom: 8, left: 20, right: 20, background: "none", border: "none", color: "#ff4444", padding: 10, fontFamily: "'Space Mono', monospace", fontSize: 11, cursor: "pointer" }}
-      >
-        SALIR DE STAFF
-      </button>
+      <div style={{ padding: "4px 20px 18px", background: "#0a0a0a" }}>
+        <button
+          type="button"
+          onClick={onLogout}
+          style={{ width: "100%", background: "none", border: "none", color: "#ff4444", padding: 10, fontFamily: "'Space Mono', monospace", fontSize: 11, cursor: "pointer" }}
+        >
+          SALIR DE STAFF
+        </button>
+      </div>
     </div>
   );
 }
@@ -1082,7 +1099,8 @@ export default function App() {
           display: "flex",
           flexDirection: "column",
           color: "#fff",
-          overflow: "hidden",
+          overflowY: "auto",
+          overflowX: "hidden",
         }}
       >
         {ticketLoading && (
