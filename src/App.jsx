@@ -265,9 +265,9 @@ function FormInput({ label, value, onChange, required, type = "text" }) {
 
 function RegistrationDirections() {
   return (
-    <div style={{ background: "#111", border: "1px solid rgba(251, 191, 36, 0.35)", borderRadius: 16, padding: "18px 20px", marginBottom: 22 }}>
-      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 17, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Instrucciones</div>
-      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 15, lineHeight: 1.45, color: "#ddd" }}>Por favor completa todos los campos requeridos. Verifica que tu información esté correcta antes de enviar.<br />Solo podrás editar y enviar este registro.</div>
+    <div style={{ background: "#111", border: "1px solid rgba(251, 191, 36, 0.35)", borderRadius: 15, padding: "18px 20px", marginBottom: 22 }}>
+      <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Instrucciones</div>
+      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, lineHeight: 1.45, color: "#ddd" }}>Por favor completa todos los campos requeridos. Verifica que tu información esté correcta antes de enviar.<br /></div>
     </div>
   );
 }
