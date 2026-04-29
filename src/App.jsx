@@ -4,6 +4,7 @@ import jsQR from "jsqr";
 const API_URL = "https://script.google.com/macros/s/AKfycbw9mRofEQdVmM-RS9c6awsFWSz2HLxywNjBCoyU9MWC_AAIxfQYyf57tRKjN6FYo4-Isw/exec";
 const STAFF_PASSWORD = "delino2026";
 const LOGO_URL = "/delino-logo.jpeg.png";
+const SUBHEADING = "Hair Show 2026";
 
 const FALLBACK_ATTENDEES = Array.from({ length: 100 }, (_, i) => ({
   ticket_id: `DHS26-${String(i + 1).padStart(3, "0")}`,
@@ -751,7 +752,40 @@ function StaffPasswordScreen({ onUnlock }) {
 }
 
 // --- MAIN APP ---
+function GlobalHeader() {
+  return (
+    <div
+      style={{
+        padding: "18px 20px 14px",
+        background: "#0a0a0a",
+        borderBottom: "1px solid #1a1a1a",
+        textAlign: "center",
+      }}
+    >
+      <img
+        src={LOGO_URL}
+        alt="Delino"
+        style={{
+          width: 120,
+          height: "auto",
+          display: "block",
+          margin: "0 auto 6px",
+        }}
+      />
 
+      <div
+        style={{
+          fontFamily: "'Space Mono', monospace",
+          fontSize: 11,
+          letterSpacing: 2,
+          color: "#888",
+        }}
+      >
+        {SUBHEADING}
+      </div>
+    </div>
+  );
+}
 export default function App() {
   const urlTicketId = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -935,6 +969,7 @@ export default function App() {
         style={{
           background: "#0a0a0a",
           minHeight: "100dvh",
+          <GlobalHeader />
           width: "100vw",
           maxWidth: 480,
           margin: "0 auto",
