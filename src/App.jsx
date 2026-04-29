@@ -425,9 +425,7 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
   const canSubmit = form.first_name && form.last_name && form.phone && form.email && !saving;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0a0a0a" }}>
-      <LogoHeader />
-      <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14 }}>
+     <div style={{ padding: "16px 20px", background: "#0d0d0d", borderBottom: "1px solid #1a1a1a", display: "flex", alignItems: "center", gap: 14 }}>
         {!publicMode && (
           <button type="button" onClick={onCancel} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
             <IconBack />
