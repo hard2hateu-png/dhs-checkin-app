@@ -48,12 +48,34 @@ function normalizeTicketId(value) {
   }
 }
 
-function normalizeTicket(ticket) {
+function normalizeTicket(ticket, index = null) {
+  const possibleTicketId =
+    ticket?.ticket_id ||
+    ticket?.Ticket_ID ||
+    ticket?.["Ticket ID"] ||
+    ticket?.qr_id ||
+    ticket?.QR_ID ||
+    ticket?.qr_text ||
+    ticket?.QR_TEXT ||
+    ticket?.registration_url ||
+    ticket?.Registration_URL ||
+    "";
+
+  const fallbackTicketId =
+    index !== null ? `DHS26-${String(index + 1).padStart(3, "0")}` : "";
+
+  const cleanTicketId = normalizeTicketId(possibleTicketId) || fallbackTicketId;
+
   return {
     ...ticket,
-    ticket_id: normalizeTicketId(ticket?.ticket_id || ticket?.Ticket_ID || ""),
+    ticket_id: cleanTicketId,
     first_name: ticket?.first_name || ticket?.["First Name"] || "",
     last_name: ticket?.last_name || ticket?.["Last Name"] || "",
+    job_role: ticket?.job_role || ticket?.["Job Role"] || "",
+    cosmetology_license: ticket?.cosmetology_license || ticket?.["Cosmetology License"] || "",
+    phone: ticket?.phone || ticket?.Phone || "",
+    email: ticket?.email || ticket?.Email || "",
+    vendor_rep: ticket?.vendor_rep || ticket?.["Vendor Rep"] || "",
     registered: ticket?.registered ?? "NO",
     checked_in:
       ticket?.checked_in === true ||
@@ -84,7 +106,7 @@ async function apiGetTicket(ticketId) {
 async function apiListTickets() {
   const data = await fetchJson(`${API_URL}?action=list`);
   if (!data.success) throw new Error(data.error || "Could not load tickets");
-  return data.tickets.map(normalizeTicket);
+  return data.tickets.map((ticket, index) => normalizeTicket(ticket, index));
 }
 
 async function apiRegisterTicket(formData) {
@@ -588,7 +610,7 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading, onLogout }) {
           return (
             <button
               type="button"
-              key={a.ticket_id}
+              key={a.ticket_id || `row-${a.id || Math.random()}`}
               onClick={() => onSelect(a.ticket_id)}
               style={{ width: "100%", background: "#111", border: `1px solid ${checked ? "#1a3a1a" : registered ? "#252520" : "#2a1a1a"}`, borderRadius: 14, padding: "16px 18px", marginBottom: 10, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", textAlign: "left", position: "relative", overflow: "hidden" }}
             >
@@ -792,7 +814,7 @@ export default function App() {
     setLoading(true);
     try {
       const rows = await apiListTickets();
-      setAttendees(rows.map(normalizeTicket));
+      setAttendees(rows.map((ticket, index) => normalizeTicket(ticket, index)));
     } catch {
       // Keep fallback list
     } finally {
@@ -918,8 +940,7 @@ export default function App() {
           display: "flex",
           flexDirection: "column",
           color: "#fff",
-          overflowY: "auto",
-          overflowX: "hidden"
+          overflow: "hidden"
         }}
       >
         {ticketLoading && (
