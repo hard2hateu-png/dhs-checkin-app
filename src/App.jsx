@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import jsQR from "jsqr";
 
 const API_URL = "https://script.google.com/macros/s/AKfycbw9mRofEQdVmM-RS9c6awsFWSz2HLxywNjBCoyU9MWC_AAIxfQYyf57tRKjN6FYo4-Isw/exec";
+const STAFF_PASSWORD = "delino2026";
 
 const FALLBACK_ATTENDEES = Array.from({ length: 100 }, (_, i) => ({
   ticket_id: `DHS26-${String(i + 1).padStart(3, "0")}`,
@@ -25,11 +26,16 @@ function normalizeTicketId(value) {
   const raw = String(value).trim();
 
   try {
-    const url = new URL(raw);
-    const fromQuery = url.searchParams.get("ticket") || url.searchParams.get("ticket_id") || url.searchParams.get("id");
+    const url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+    const pathMatch = url.pathname.match(/DHS26-\d{3}/i);
+    if (pathMatch) return pathMatch[0].toUpperCase();
+
+    const fromQuery =
+      url.searchParams.get("ticket") ||
+      url.searchParams.get("ticket_id") ||
+      url.searchParams.get("id");
+
     if (fromQuery) return fromQuery.trim().toUpperCase();
-    const matchFromPath = url.pathname.match(/DHS26-\d{3}/i);
-    if (matchFromPath) return matchFromPath[0].toUpperCase();
   } catch {
     // Not a URL.
   }
@@ -44,6 +50,11 @@ function normalizeTicket(ticket) {
     ticket_id: normalizeTicketId(ticket?.ticket_id || ticket?.Ticket_ID || ""),
     first_name: ticket?.first_name || ticket?.["First Name"] || "",
     last_name: ticket?.last_name || ticket?.["Last Name"] || "",
+    job_role: ticket?.job_role || "",
+    cosmetology_license: ticket?.cosmetology_license || "",
+    phone: ticket?.phone || "",
+    email: ticket?.email || "",
+    vendor_rep: ticket?.vendor_rep || "",
     registered: ticket?.registered ?? "NO",
     checked_in:
       ticket?.checked_in === true ||
@@ -55,6 +66,7 @@ function normalizeTicket(ticket) {
 async function fetchJson(url, options) {
   const response = await fetch(url, options);
   const text = await response.text();
+
   try {
     return JSON.parse(text);
   } catch {
@@ -67,12 +79,14 @@ async function fetchJson(url, options) {
 async function apiGetTicket(ticketId) {
   const cleanId = normalizeTicketId(ticketId);
   const data = await fetchJson(`${API_URL}?ticket_id=${encodeURIComponent(cleanId)}`);
+
   if (!data.success) throw new Error(data.error || "Ticket not found");
   return normalizeTicket(data.ticket);
 }
 
 async function apiListTickets() {
   const data = await fetchJson(`${API_URL}?action=list`);
+
   if (!data.success) throw new Error(data.error || "Could not load tickets");
   return data.tickets.map(normalizeTicket);
 }
@@ -86,6 +100,7 @@ async function apiRegisterTicket(formData) {
       ticket_id: normalizeTicketId(formData.ticket_id),
     }),
   });
+
   if (!data.success) throw new Error(data.error || "Registration failed");
   return normalizeTicket(data.ticket);
 }
@@ -98,6 +113,7 @@ async function apiCheckInTicket(ticketId) {
       ticket_id: normalizeTicketId(ticketId),
     }),
   });
+
   if (!data.success) throw new Error(data.error || "Check-in failed");
   return normalizeTicket(data.ticket);
 }
@@ -110,6 +126,7 @@ async function apiUndoCheckInTicket(ticketId) {
       ticket_id: normalizeTicketId(ticketId),
     }),
   });
+
   if (!data.success) throw new Error(data.error || "Undo check-in failed");
   return normalizeTicket(data.ticket);
 }
@@ -137,10 +154,13 @@ function isCheckedIn(attendee) {
 
 function roleBadge(role) {
   if (!role) return { bg: "#2a2a2a", text: "#888", label: "-" };
+
   const r = String(role).toUpperCase();
+
   if (r.includes("ESTILISTA")) return { bg: "#1a2f1a", text: "#4ade80", label: "ESTILISTA" };
   if (r.includes("PROPIETARIO")) return { bg: "#1a1f3a", text: "#60a5fa", label: "PROPIETARIO" };
   if (r.includes("ESTUDIANTE")) return { bg: "#2a1a2f", text: "#c084fc", label: "ESTUDIANTE" };
+
   return { bg: "#2a2a1a", text: "#fbbf24", label: role };
 }
 
@@ -200,7 +220,9 @@ function QRScanner({ onScan, onClose }) {
 
     function stopCamera() {
       active = false;
+
       if (animRef.current) cancelAnimationFrame(animRef.current);
+
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
@@ -276,6 +298,7 @@ function QRScanner({ onScan, onClose }) {
         <button type="button" onClick={onClose} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
           <IconBack />
         </button>
+
         <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: "#fff", letterSpacing: 1 }}>
           ESCANEAR TICKET
         </span>
@@ -303,6 +326,7 @@ function QRScanner({ onScan, onClose }) {
                 }}
               />
             ))}
+
             <div style={{ position: "absolute", left: 8, right: 8, top: "40%", height: 2, background: "linear-gradient(90deg, transparent, #00ff88, transparent)", animation: "scanLine 1.5s ease-in-out infinite" }} />
           </div>
         </div>
@@ -327,6 +351,7 @@ function QRScanner({ onScan, onClose }) {
             placeholder="DHS26-001"
             style={{ flex: 1, background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: 10, padding: "13px 16px", color: "#fff", fontFamily: "'Space Mono', monospace", fontSize: 16, outline: "none" }}
           />
+
           <button type="button" onClick={handleManual} style={{ background: "#00ff88", color: "#000", border: "none", borderRadius: 10, padding: "13px 20px", fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 15, cursor: "pointer" }}>
             IR -&gt;
           </button>
@@ -338,19 +363,189 @@ function QRScanner({ onScan, onClose }) {
 
 // --- SHARED FORM STYLES ---
 
-const labelStyle = { display: "block", color: "#777", fontFamily: "'Space Mono', monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, margin: "14px 0 6px" };
-const inputStyle = { width: "100%", background: "#111", border: "1px solid #2a2a2a", borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 16, boxSizing: "border-box", fontFamily: "'DM Sans', sans-serif", outline: "none" };
+const labelStyle = {
+  display: "block",
+  color: "#777",
+  fontFamily: "'Space Mono', monospace",
+  fontSize: 11,
+  textTransform: "uppercase",
+  letterSpacing: 1,
+  margin: "14px 0 6px",
+};
+
+const inputStyle = {
+  width: "100%",
+  background: "#111",
+  border: "1px solid #2a2a2a",
+  borderRadius: 12,
+  padding: "14px 16px",
+  color: "#fff",
+  fontSize: 16,
+  boxSizing: "border-box",
+  fontFamily: "'DM Sans', sans-serif",
+  outline: "none",
+};
 
 function FormInput({ label, value, onChange, required, type = "text" }) {
   return (
     <>
-      <label style={labelStyle}>{label}{required ? " *" : ""}</label>
+      <label style={labelStyle}>
+        {label}
+        {required ? " *" : ""}
+      </label>
+
       <input type={type} value={value} onChange={(event) => onChange(event.target.value)} style={inputStyle} />
     </>
   );
 }
 
 // --- SUB-SCREENS ---
+
+function StaffLogin({ onLogin, onCancel }) {
+  const [password, setPassword] = useState("");
+
+  function submitPassword(event) {
+    event.preventDefault();
+
+    if (password === STAFF_PASSWORD) {
+      onLogin();
+    } else {
+      window.alert("Contraseña incorrecta");
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh", background: "#0a0a0a", padding: "24px 20px", color: "#fff", justifyContent: "center" }}>
+      <div style={{ background: "#111", border: "1px solid #222", borderRadius: 18, padding: 22 }}>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
+          MODO STAFF
+        </div>
+
+        <div style={{ color: "#888", fontSize: 14, marginBottom: 18 }}>
+          Ingresa la contraseña una vez en este dispositivo.
+        </div>
+
+        <form onSubmit={submitPassword}>
+          <input
+            autoFocus
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Contraseña"
+            style={{ ...inputStyle, marginBottom: 14, textAlign: "center", fontFamily: "'Space Mono', monospace" }}
+          />
+
+          <button
+            type="submit"
+            style={{
+              width: "100%",
+              background: "#00ff88",
+              color: "#000",
+              border: "none",
+              borderRadius: 14,
+              padding: 16,
+              fontFamily: "'Space Mono', monospace",
+              fontWeight: 700,
+              fontSize: 16,
+              cursor: "pointer",
+            }}
+          >
+            ENTRAR
+          </button>
+
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{ width: "100%", marginTop: 12, background: "none", border: "none", color: "#777", padding: 12, cursor: "pointer" }}
+          >
+            Cancelar
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function GuestTicketView({ attendee, onRegister, onStaffMode }) {
+  const registered = isRegistered(attendee);
+  const name = [attendee?.first_name, attendee?.last_name].filter(Boolean).join(" ");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh", background: "#0a0a0a", color: "#fff", padding: "24px 20px" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <div style={{ background: "#111", border: "1px solid #222", borderRadius: 20, padding: "28px 22px", textAlign: "center" }}>
+          <div style={{ color: "#fbbf24", fontFamily: "'Space Mono', monospace", fontSize: 14, fontWeight: 700, marginBottom: 10 }}>
+            {attendee.ticket_id}
+          </div>
+
+          <h1 style={{ margin: 0, fontSize: 28, lineHeight: 1.15 }}>
+            {registered ? "YA ESTÁS REGISTRADO" : "BIENVENIDO"}
+          </h1>
+
+          {registered && (
+            <div style={{ color: "#00ff88", fontSize: 22, fontWeight: 700, marginTop: 14 }}>
+              {name || attendee.email}
+            </div>
+          )}
+
+          <p style={{ color: "#aaa", fontSize: 15, lineHeight: 1.4, margin: "18px 0 22px" }}>
+            {registered
+              ? "Puedes editar tu registro usando este mismo ticket."
+              : "Completa tu registro para este ticket."}
+          </p>
+
+          <button
+            type="button"
+            onClick={onRegister}
+            style={{
+              width: "100%",
+              background: registered ? "#222" : "#00ff88",
+              color: registered ? "#fff" : "#000",
+              border: registered ? "1px solid #333" : "none",
+              borderRadius: 16,
+              padding: 18,
+              fontFamily: "'Space Mono', monospace",
+              fontWeight: 700,
+              fontSize: 16,
+              cursor: "pointer",
+              marginBottom: 12,
+            }}
+          >
+            {registered ? "EDITAR MI REGISTRO" : "REGISTRAR TICKET"}
+          </button>
+
+          <a
+            href="tel:9726680516"
+            style={{
+              display: "block",
+              width: "100%",
+              background: "#111",
+              color: "#ccc",
+              border: "1px solid #333",
+              borderRadius: 16,
+              padding: 16,
+              boxSizing: "border-box",
+              fontFamily: "'Space Mono', monospace",
+              fontWeight: 700,
+              fontSize: 14,
+              textDecoration: "none",
+            }}
+          >
+            CONTACTAR A DELINO
+          </a>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onStaffMode}
+        style={{ background: "none", border: "none", color: "#333", fontSize: 12, padding: 14, cursor: "pointer" }}
+      >
+        MODO STAFF
+      </button>
+    </div>
+  );
+}
 
 function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving }) {
   const [form, setForm] = useState({
@@ -376,9 +571,15 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving }) {
         <button type="button" onClick={onCancel} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
           <IconBack />
         </button>
+
         <div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: "#fff" }}>REGISTRO</div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#fbbf24", marginTop: 2 }}>{ticketId}</div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: "#fff" }}>
+            {initial?.first_name || initial?.last_name ? "EDITAR REGISTRO" : "REGISTRO"}
+          </div>
+
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 12, color: "#fbbf24", marginTop: 2 }}>
+            {ticketId}
+          </div>
         </div>
       </div>
 
@@ -405,7 +606,19 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving }) {
           type="button"
           disabled={!canSubmit}
           onClick={() => onSubmit(form)}
-          style={{ width: "100%", background: !canSubmit ? "#1a1a1a" : "#fbbf24", color: !canSubmit ? "#444" : "#000", border: "none", borderRadius: 16, padding: 20, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 18, cursor: canSubmit ? "pointer" : "not-allowed", transition: "background 0.2s", letterSpacing: 0.5 }}
+          style={{
+            width: "100%",
+            background: !canSubmit ? "#1a1a1a" : "#fbbf24",
+            color: !canSubmit ? "#444" : "#000",
+            border: "none",
+            borderRadius: 16,
+            padding: 20,
+            fontFamily: "'Space Mono', monospace",
+            fontWeight: 700,
+            fontSize: 18,
+            cursor: canSubmit ? "pointer" : "not-allowed",
+            letterSpacing: 0.5,
+          }}
         >
           {saving ? "GUARDANDO..." : "GUARDAR REGISTRO"}
         </button>
@@ -414,11 +627,14 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving }) {
   );
 }
 
-function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
+function AttendeeList({ attendees, onSelect, onScanNav, loading, onLogout }) {
   const [query, setQuery] = useState("");
+
   const filtered = useMemo(() => {
     if (!query) return attendees;
+
     const q = query.toLowerCase();
+
     return attendees.filter(
       (a) =>
         a.ticket_id?.toLowerCase().includes(q) ||
@@ -436,11 +652,15 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
       <div style={{ padding: "20px 20px 0", background: "#0d0d0d" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 22, fontWeight: 700, color: "#fff" }}>DHS 2026</div>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 22, fontWeight: 700, color: "#fff" }}>
+              DHS STAFF
+            </div>
+
             <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#555", marginTop: 3 }}>
               {loading ? "Cargando..." : `${totalChecked} check-ins · ${totalRegistered} registrados · ${attendees.length} tickets`}
             </div>
           </div>
+
           <button type="button" onClick={onScanNav} style={{ background: "#00ff88", color: "#000", border: "none", borderRadius: 12, padding: "12px 18px", display: "flex", alignItems: "center", gap: 8, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
             <IconScan /> SCAN
           </button>
@@ -454,6 +674,7 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
           <div style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#555" }}>
             <IconSearch />
           </div>
+
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -463,15 +684,25 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 100px" }}>
-        {filtered.length === 0 && (
-          <div style={{ textAlign: "center", padding: "48px 0", color: "#444", fontFamily: "'Space Mono', monospace" }}>Sin resultados para "{query}"</div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 80px" }}>
+        {loading && (
+          <div style={{ textAlign: "center", padding: "48px 0", color: "#444", fontFamily: "'Space Mono', monospace" }}>
+            Cargando lista...
+          </div>
         )}
-        {filtered.map((a) => {
+
+        {!loading && filtered.length === 0 && (
+          <div style={{ textAlign: "center", padding: "48px 0", color: "#444", fontFamily: "'Space Mono', monospace" }}>
+            Sin resultados para "{query}"
+          </div>
+        )}
+
+        {!loading && filtered.map((a) => {
           const checked = isCheckedIn(a);
           const registered = isRegistered(a);
           const name = [a.first_name, a.last_name].filter(Boolean).join(" ");
           const badge = roleBadge(a.job_role);
+
           return (
             <button
               type="button"
@@ -480,19 +711,46 @@ function AttendeeList({ attendees, onSelect, onScanNav, loading }) {
               style={{ width: "100%", background: "#111", border: `1px solid ${checked ? "#1a3a1a" : registered ? "#252520" : "#2a1a1a"}`, borderRadius: 14, padding: "16px 18px", marginBottom: 10, display: "flex", alignItems: "center", gap: 14, cursor: "pointer", textAlign: "left", position: "relative", overflow: "hidden" }}
             >
               <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: checked ? "#00ff88" : registered ? "#fbbf24" : "#ff4444" }} />
+
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: "#fff" }}>{a.ticket_id}</span>
-                  {a.job_role && <span style={{ background: badge.bg, color: badge.text, fontFamily: "'Space Mono', monospace", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4 }}>{badge.label}</span>}
+                  <span style={{ fontFamily: "'Space Mono', monospace", fontSize: 16, fontWeight: 700, color: "#fff" }}>
+                    {a.ticket_id}
+                  </span>
+
+                  {a.job_role && (
+                    <span style={{ background: badge.bg, color: badge.text, fontFamily: "'Space Mono', monospace", fontSize: 9, fontWeight: 700, padding: "2px 7px", borderRadius: 4 }}>
+                      {badge.label}
+                    </span>
+                  )}
                 </div>
-                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: registered ? "#aaa" : "#ff7777" }}>{registered ? name || a.email || "-" : "No registrado"}</div>
-                {a.email && registered && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#555", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.email}</div>}
+
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: registered ? "#aaa" : "#ff7777" }}>
+                  {registered ? name || a.email || "-" : "No registrado"}
+                </div>
+
+                {a.email && registered && (
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#555", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {a.email}
+                  </div>
+                )}
               </div>
-              <div style={{ width: 32, height: 32, background: checked ? "#00ff88" : "#1a1a1a", borderRadius: "50%", border: checked ? "none" : "1px solid #2a2a2a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#000" }}>{checked && <IconCheck />}</div>
+
+              <div style={{ width: 32, height: 32, background: checked ? "#00ff88" : "#1a1a1a", borderRadius: "50%", border: checked ? "none" : "1px solid #2a2a2a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#000" }}>
+                {checked && <IconCheck />}
+              </div>
             </button>
           );
         })}
       </div>
+
+      <button
+        type="button"
+        onClick={onLogout}
+        style={{ position: "absolute", bottom: 8, left: 20, right: 20, background: "none", border: "none", color: "#ff4444", padding: 10, fontFamily: "'Space Mono', monospace", fontSize: 11, cursor: "pointer" }}
+      >
+        SALIR DE STAFF
+      </button>
     </div>
   );
 }
@@ -505,10 +763,16 @@ function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack
 
   function Field({ label, value }) {
     if (!value) return null;
+
     return (
       <div style={{ marginBottom: 14 }}>
-        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>{label}</div>
-        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: "#ddd" }}>{value}</div>
+        <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 10, color: "#555", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>
+          {label}
+        </div>
+
+        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: "#ddd" }}>
+          {value}
+        </div>
       </div>
     );
   }
@@ -519,23 +783,35 @@ function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack
         <button type="button" onClick={onBack} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 4, display: "flex" }}>
           <IconBack />
         </button>
+
         <div>
-          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: "#fff" }}>{attendee.ticket_id}</div>
+          <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 20, fontWeight: 700, color: "#fff" }}>
+            {attendee.ticket_id}
+          </div>
+
           <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: checked ? "#00ff88" : registered ? "#fbbf24" : "#ff7777" }}>
             {checked ? "✓ Check-in completo" : registered ? "Registrado · pendiente check-in" : "No registrado"}
           </div>
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px 140px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px 160px" }}>
         <div style={{ background: "#111", borderRadius: 16, padding: "20px", marginBottom: 16, border: "1px solid #1e1e1e" }}>
           <div style={{ display: "flex", gap: 14 }}>
             <div style={{ width: 48, height: 48, background: "#1a1a1a", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "#555", flexShrink: 0 }}>
               <IconUser />
             </div>
+
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 22, fontWeight: 700, color: registered ? "#fff" : "#ff7777", lineHeight: 1.2 }}>{registered ? name : "No registrado"}</div>
-              {attendee.job_role && <span style={{ display: "inline-block", marginTop: 8, background: badge.bg, color: badge.text, fontFamily: "'Space Mono', monospace", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6 }}>{badge.label}</span>}
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 22, fontWeight: 700, color: registered ? "#fff" : "#ff7777", lineHeight: 1.2 }}>
+                {registered ? name : "No registrado"}
+              </div>
+
+              {attendee.job_role && (
+                <span style={{ display: "inline-block", marginTop: 8, background: badge.bg, color: badge.text, fontFamily: "'Space Mono', monospace", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 6 }}>
+                  {badge.label}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -546,7 +822,12 @@ function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack
           <Field label="Telefono" value={attendee.phone} />
           <Field label="Email" value={attendee.email} />
           <Field label="Vendedor / Representante" value={attendee.vendor_rep} />
-          {!registered && <div style={{ color: "#ff7777", fontFamily: "'Space Mono', monospace", fontSize: 12 }}>Este ticket aun no tiene informacion de registro.</div>}
+
+          {!registered && (
+            <div style={{ color: "#ff7777", fontFamily: "'Space Mono', monospace", fontSize: 12 }}>
+              Este ticket aun no tiene informacion de registro.
+            </div>
+          )}
         </div>
 
         {checked && (
@@ -555,13 +836,22 @@ function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack
               <div style={{ width: 40, height: 40, background: "#00ff88", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#000" }}>
                 <IconCheck />
               </div>
+
               <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, color: "#00ff88", fontSize: 15 }}>Ya hizo check-in</div>
-                {attendee.check_in_time && <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#4ade80", marginTop: 3 }}>{String(attendee.check_in_time)}</div>}
+                <div style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, color: "#00ff88", fontSize: 15 }}>
+                  Ya hizo check-in
+                </div>
+
+                {attendee.check_in_time && (
+                  <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 11, color: "#4ade80", marginTop: 3 }}>
+                    {String(attendee.check_in_time)}
+                  </div>
+                )}
               </div>
-              <button 
-                type="button" 
-                onClick={() => onUndoCheckIn(attendee.ticket_id)} 
+
+              <button
+                type="button"
+                onClick={() => onUndoCheckIn(attendee.ticket_id)}
                 disabled={saving}
                 style={{ background: "#1a1a1a", border: "1px solid #333", borderRadius: 8, padding: 8, color: "#ff4444", cursor: "pointer", display: "flex" }}
                 title="Deshacer check-in"
@@ -578,31 +868,18 @@ function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack
           <button
             type="button"
             onClick={() => onRegister(attendee.ticket_id)}
-            style={{
-              width: "100%",
-              background: "#222",
-              color: "#fff",
-              border: "1px solid #333",
-              borderRadius: 16,
-              padding: 16,
-              fontFamily: "'Space Mono', monospace",
-              fontWeight: 700,
-              fontSize: 15,
-              cursor: "pointer",
-              marginBottom: 10,
-              letterSpacing: 0.5
-            }}
+            style={{ width: "100%", background: "#222", color: "#fff", border: "1px solid #333", borderRadius: 16, padding: 16, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 15, cursor: "pointer", marginBottom: 10, letterSpacing: 0.5 }}
           >
             EDITAR REGISTRO
           </button>
         )}
-        
+
         {!registered && (
           <button type="button" onClick={() => onRegister(attendee.ticket_id)} style={{ width: "100%", background: "#fbbf24", color: "#000", border: "none", borderRadius: 16, padding: 18, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 16, cursor: "pointer", marginBottom: 10, letterSpacing: 0.5 }}>
             REGISTRAR TICKET
           </button>
         )}
-        
+
         {registered && !checked && (
           <button type="button" disabled={saving} onClick={() => onCheckIn(attendee.ticket_id)} style={{ width: "100%", background: saving ? "#1a1a1a" : "#00ff88", color: saving ? "#444" : "#000", border: "none", borderRadius: 16, padding: 20, fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: 18, cursor: saving ? "not-allowed" : "pointer", letterSpacing: 1 }}>
             {saving ? "GUARDANDO..." : "HACER CHECK-IN"}
@@ -616,11 +893,13 @@ function AttendeeDetail({ attendee, onCheckIn, onUndoCheckIn, onRegister, onBack
 // --- MAIN APP ---
 
 export default function App() {
+  const [isStaff, setIsStaff] = useState(() => localStorage.getItem("STAFF_MODE") === "true");
   const [screen, setScreen] = useState("list");
   const [attendees, setAttendees] = useState(FALLBACK_ATTENDEES);
   const [selectedId, setSelectedId] = useState(null);
   const [notFoundMsg, setNotFoundMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [ticketLoading, setTicketLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const selectedAttendee = useMemo(() => attendees.find((a) => a.ticket_id === selectedId), [attendees, selectedId]);
@@ -629,7 +908,9 @@ export default function App() {
     setAttendees((prev) => {
       const clean = normalizeTicket(ticket);
       const exists = prev.some((a) => a.ticket_id === clean.ticket_id);
+
       if (!exists) return [...prev, clean].sort((a, b) => a.ticket_id.localeCompare(b.ticket_id));
+
       return prev.map((a) => (a.ticket_id === clean.ticket_id ? { ...a, ...clean } : a));
     });
   }, []);
@@ -642,40 +923,57 @@ export default function App() {
   const handleSelect = useCallback(
     async (ticketId) => {
       const cleanId = normalizeTicketId(ticketId);
+
+      if (!cleanId) return;
+
       setNotFoundMsg("");
       setSelectedId(cleanId);
-      setScreen("detail");
+      setTicketLoading(true);
+      setScreen(isStaff ? "detail" : "guest");
+
       try {
         const ticket = await apiGetTicket(cleanId);
         upsertAttendee(ticket);
       } catch {
         showError(`${cleanId} - no encontrado en la hoja`);
+      } finally {
+        setTicketLoading(false);
       }
     },
-    [upsertAttendee]
+    [isStaff, upsertAttendee]
   );
 
   async function refreshList() {
+    if (!isStaff) return;
+
     setLoading(true);
+
     try {
       const rows = await apiListTickets();
       setAttendees(rows.map(normalizeTicket));
     } catch {
-      // Keep fallback list
+      // Keep fallback list.
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    refreshList();
-    const params = new URLSearchParams(window.location.search);
-    const ticketFromUrl = params.get("ticket") || params.get("ticket_id") || params.get("id");
-    if (ticketFromUrl) handleSelect(normalizeTicketId(ticketFromUrl));
-  }, [handleSelect]);
+    const ticketFromUrl = normalizeTicketId(window.location.href);
+
+    if (ticketFromUrl) {
+      handleSelect(ticketFromUrl);
+      return;
+    }
+
+    if (isStaff) {
+      refreshList();
+    }
+  }, [isStaff, handleSelect]);
 
   async function handleCheckIn(ticketId) {
     setSaving(true);
+
     try {
       const updated = await apiCheckInTicket(ticketId);
       upsertAttendee(updated);
@@ -688,7 +986,9 @@ export default function App() {
 
   async function handleUndoCheckIn(ticketId) {
     if (!window.confirm("¿Anular el check-in de este ticket?")) return;
+
     setSaving(true);
+
     try {
       const updated = await apiUndoCheckInTicket(ticketId);
       upsertAttendee(updated);
@@ -706,15 +1006,39 @@ export default function App() {
 
   async function handleRegisterSubmit(formData) {
     setSaving(true);
+
     try {
       const updated = await apiRegisterTicket(formData);
       upsertAttendee(updated);
-      setScreen("detail");
+      setSelectedId(normalizeTicketId(updated.ticket_id));
+      setScreen(isStaff ? "detail" : "guest");
     } catch (err) {
       showError(err.message || "Error al registrar");
     } finally {
       setSaving(false);
     }
+  }
+
+  function loginStaff() {
+    localStorage.setItem("STAFF_MODE", "true");
+    window.location.href = "/";
+  }
+
+  function logoutStaff() {
+    localStorage.removeItem("STAFF_MODE");
+    window.location.href = "/";
+  }
+
+  function cancelStaffLogin() {
+    if (selectedId) {
+      setScreen(isStaff ? "detail" : "guest");
+    } else {
+      setScreen("list");
+    }
+  }
+
+  if (screen === "staffLogin") {
+    return <StaffLogin onLogin={loginStaff} onCancel={cancelStaffLogin} />;
   }
 
   return (
@@ -754,26 +1078,61 @@ export default function App() {
           display: "flex",
           flexDirection: "column",
           color: "#fff",
-          overflow: "hidden"
+          overflow: "hidden",
         }}
       >
-        {screen === "list" && (
+        {ticketLoading && (
+          <div style={{ padding: 40, color: "#aaa", fontFamily: "'Space Mono', monospace", textAlign: "center" }}>
+            Cargando ticket...
+          </div>
+        )}
+
+        {!ticketLoading && screen === "list" && isStaff && (
           <AttendeeList
             attendees={attendees}
             loading={loading}
             onSelect={handleSelect}
             onScanNav={() => setScreen("scan")}
+            onLogout={logoutStaff}
           />
         )}
 
-        {screen === "scan" && (
+        {!ticketLoading && screen === "list" && !isStaff && (
+          <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 20px", textAlign: "center" }}>
+            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 30, fontWeight: 700, marginBottom: 10 }}>
+              DHS 2026
+            </div>
+
+            <p style={{ color: "#777", fontSize: 15, lineHeight: 1.4 }}>
+              Escanea tu ticket físico para completar o revisar tu registro.
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setScreen("staffLogin")}
+              style={{ marginTop: 60, background: "none", border: "none", color: "#333", fontSize: 12, cursor: "pointer" }}
+            >
+              MODO STAFF
+            </button>
+          </div>
+        )}
+
+        {!ticketLoading && screen === "guest" && selectedAttendee && (
+          <GuestTicketView
+            attendee={selectedAttendee}
+            onRegister={() => setScreen("register")}
+            onStaffMode={() => setScreen("staffLogin")}
+          />
+        )}
+
+        {!ticketLoading && screen === "scan" && isStaff && (
           <QRScanner
             onScan={(id) => handleSelect(id)}
             onClose={() => setScreen("list")}
           />
         )}
 
-        {screen === "detail" && selectedAttendee && (
+        {!ticketLoading && screen === "detail" && isStaff && selectedAttendee && (
           <AttendeeDetail
             attendee={selectedAttendee}
             saving={saving}
@@ -784,13 +1143,13 @@ export default function App() {
           />
         )}
 
-        {screen === "register" && (
+        {!ticketLoading && screen === "register" && selectedId && (
           <RegistrationForm
             ticketId={selectedId}
             initial={selectedAttendee}
             saving={saving}
             onSubmit={handleRegisterSubmit}
-            onCancel={() => setScreen("detail")}
+            onCancel={() => setScreen(isStaff ? "detail" : "guest")}
           />
         )}
 
