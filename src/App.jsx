@@ -320,8 +320,8 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
   }
 
   const canSubmit = publicMode
-    ? form.first_name && form.last_name && form.phone && form.email && !saving
-    : !saving;
+    ? form.first_name && form.last_name && form.phone && form.email && form.vendor_rep && !saving
+    : form.vendor_rep && !saving;
 
   const isEmptyForm =
     !form.first_name &&
@@ -349,7 +349,7 @@ function RegistrationForm({ ticketId, initial, onSubmit, onCancel, saving, publi
         <FormInput label="Licencia de cosmetologia" value={form.cosmetology_license} onChange={(v) => update("cosmetology_license", v)} />
         <FormInput label="Telefono" value={form.phone} onChange={(v) => update("phone", v)} required type="tel" />
         <FormInput label="Correo electronico" value={form.email} onChange={(v) => update("email", v)} required type="email" />
-        <FormInput label="Vendedor / Representante" value={form.vendor_rep} onChange={(v) => update("vendor_rep", v)} />
+        <FormInput label="Vendedor / Representante" value={form.vendor_rep} onChange={(v) => update("vendor_rep", v)} required />
       </div>
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 20px 18px", background: "linear-gradient(transparent, #0a0a0a 40%)" }}>
         {!publicMode && (
