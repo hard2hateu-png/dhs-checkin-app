@@ -707,8 +707,8 @@ export default function App() {
 
   return (
     <>
-      <style>{`@keyframes scanLine{0%,100%{opacity:0;transform:translateY(-30px)}50%{opacity:1;transform:translateY(30px)}} html,body,#root{margin:0;padding:0;width:100%;min-height:100%;background:#0a0a0a;overflow-x:hidden} body{overscroll-behavior:none} *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}`}</style>
-      <div style={{ background: "#0a0a0a", minHeight: "100dvh", height: "100dvh", width: "100vw", maxWidth: 480, margin: "0 auto", position: "relative", display: "flex", flexDirection: "column", color: "#fff", overflow: "hidden" }}>
+      <style>{`@keyframes scanLine{0%,100%{opacity:0;transform:translateY(-30px)}50%{opacity:1;transform:translateY(30px)}} html,body,#root{margin:0;padding:0;width:100%;min-height:100%;background:#0a0a0a;overflow-x:hidden} body{overscroll-behavior:none} *{box-sizing:border-box;-webkit-tap-highlight-color:transparent} :root{--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px)}`}</style>
+      <div style={{ background: "#0a0a0a", minHeight: "100dvh", height: "100dvh", width: "100vw", maxWidth: 480, margin: "0 auto", position: "relative", display: "flex", flexDirection: "column", color: "#fff", overflow: "hidden", paddingTop: "max(8px, var(--safe-top))", paddingBottom: "var(--safe-bottom)" }}>
         <GlobalHeader />
         {showPasswordScreen && <StaffPasswordScreen onUnlock={() => setStaffUnlocked(true)} />}
         {isPublicTicketMode && screen === "loading" && <LoadingPanel label="Buscando registro..." />}
